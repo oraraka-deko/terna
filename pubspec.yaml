@@ -40,6 +40,7 @@ dependencies:
   flutter_svg: ^2.3.2
   flutter_soloud: ^3.5.4
   flutter_telegram_miniapp: ^0.1.2
+  flutter_scene: ^0.24.3
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -89,6 +90,21 @@ flutter:
     - assets/mines_bomb_game/UI_assets/
     - assets/mines_bomb_game/UI_assets_v2/
     - assets/sounds/shared/
+    # - flutter_scene_generated/
+    # - path: flutter_scene_generated/metal_ios/
+    #   platforms:
+    #     - ios
+    # - path: flutter_scene_generated/metal_desktop/
+    #   platforms:
+    #     - macos
+    # - path: flutter_scene_generated/opengl_es_vulkan/
+    #   platforms:
+    #     - android
+    #     - linux
+    #     - windows
+    # - path: flutter_scene_generated/opengl_es/
+    #   platforms:
+    #     - web
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
