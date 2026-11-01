@@ -4,6 +4,7 @@ import 'package:terna/screens/games/tower_game_screen.dart';
 import 'package:terna/screens/games/plinko_game_screen.dart';
 import 'package:terna/screens/games/territory_game_screen.dart';
 import 'package:terna/screens/games/bump_game_screen.dart';
+import 'package:terna/screens/gift_shop/gift_shop_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_telegram_miniapp/flutter_telegram_miniapp.dart';
 import 'package:terna/screens/games/american_roulette_game.dart';
@@ -343,6 +344,38 @@ class _AppDrawerScreenState extends State<AppDrawerScreen> {
           ),
         ),
         screen: const BumpGameScreen(),
+      ),
+      AppItem(
+        name: 'Gift Shop',
+        hasDot: true,
+        iconWidget: Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: const Color(0xFF38BDF8), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.card_giftcard_rounded,
+              color: Color(0xFF38BDF8),
+              size: 30,
+            ),
+          ),
+        ),
+        screen: const GiftShopScreen(),
       ),
       AppItem(
         name: 'YouTube',
