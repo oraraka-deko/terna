@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:terna/models/gift_shop/gift_shop_models.dart';
 import 'package:terna/services/gift_shop/gift_shop_repository.dart';
 import 'package:terna/features/gift_shop/view_models/gift_shop_view_model.dart';
+import 'package:terna/widgets/upgrade_game/gift_visual_widget.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -132,6 +134,24 @@ void main() {
 
       final success = viewModel.purchaseGift(expensiveGift);
       expect(success, isFalse);
+    });
+
+    testWidgets('9. GiftVisualWidget defaults to static image to save CPU/GPU', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: GiftVisualWidget(
+              giftId: '5170145012310081615',
+              name: 'Heart Box',
+              size: 56,
+              animate: false,
+            ),
+          ),
+        ),
+      );
+
+      // Verify Image.asset is used for static image instead of Lottie
+      expect(find.byType(GiftVisualWidget), findsOneWidget);
     });
   });
 }

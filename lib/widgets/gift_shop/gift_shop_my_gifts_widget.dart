@@ -201,7 +201,7 @@ class GiftShopMyGiftsWidget extends StatelessWidget {
                               giftId: gift.giftId,
                               name: gift.name,
                               size: 72,
-                              animate: false,
+                              animateOnHover: true,
                             ),
                           ),
                         ),

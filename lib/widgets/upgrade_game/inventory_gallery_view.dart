@@ -90,7 +90,8 @@ class InventoryGalleryView extends StatelessWidget {
                     GiftVisualWidget(
                       gift: gift,
                       size: 44,
-                      animate: isSelected,
+                      animate: isSelected ? true : null,
+                      animateOnHover: true,
                     ),
                     const SizedBox(height: 4),
 

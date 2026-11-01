@@ -101,7 +101,7 @@ class GiftShopBottomNavWidget extends StatelessWidget {
                         width: 1.5,
                       ),
                       image: const DecorationImage(
-                        image: AssetImage('assets/telegram/avatars_demo/avatar_1.png'),
+                        image: AssetImage('assets/telegram/avatars_demo/avatar_demo.png'),
                         fit: BoxFit.cover,
                       ),
                     ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../features/upgrade_game/view_models/upgrade_game_view_model.dart';
 import '../../models/upgrade_game/upgrade_game_models.dart';
 import '../../services/haptic.dart';
-import 'gift_visual_widget.dart';
+import 'target_gift_grid_item.dart';
 
 /// Modal dialog allowing the user to search and pick a target gift from the catalog.
 class TargetGiftPickerModal extends StatefulWidget {
@@ -128,80 +128,19 @@ class _TargetGiftPickerModalState extends State<TargetGiftPickerModal> {
                         final gift = filteredGifts[index];
                         final isCurrentlyTarget =
                             vm.selectedTargetGift?.giftId == gift.giftId;
+                        final priceText = vm.currency == UpgradeCurrency.ton
+                            ? '${vm.starsToTon(gift.priceStars)} TON'
+                            : '${gift.priceStars} ⭐';
 
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              HapticFeedbackService.tap();
-                              vm.setSelectedTargetGift(gift);
-                              Navigator.of(context).pop();
-                            },
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: isCurrentlyTarget
-                                    ? const Color(0xFFA3E635).withValues(alpha: 0.15)
-                                    : const Color(0xFF161928),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: isCurrentlyTarget
-                                      ? const Color(0xFFA3E635)
-                                      : Colors.white.withValues(alpha: 0.08),
-                                  width: isCurrentlyTarget ? 1.5 : 1.0,
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // Rounded gift icon container
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF1E1735),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.white10),
-                                    ),
-                                    padding: const EdgeInsets.all(4),
-                                    child: GiftVisualWidget(
-                                      gift: gift,
-                                      size: 40,
-                                      animate: true,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-
-                                  // Name
-                                  Text(
-                                    gift.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-
-                                  // Price
-                                  Text(
-                                    vm.currency == UpgradeCurrency.ton
-                                        ? '${vm.starsToTon(gift.priceStars)} TON'
-                                        : '${gift.priceStars} ⭐',
-                                    style: const TextStyle(
-                                      color: Color(0xFFA3E635),
-                                      fontSize: 9,
-                                      fontFamily: 'monospace',
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        return TargetGiftGridItem(
+                          gift: gift,
+                          isCurrentlyTarget: isCurrentlyTarget,
+                          priceText: priceText,
+                          onTap: () {
+                            HapticFeedbackService.tap();
+                            vm.setSelectedTargetGift(gift);
+                            Navigator.of(context).pop();
+                          },
                         );
                       },
                     ),
