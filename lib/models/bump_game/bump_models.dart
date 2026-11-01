@@ -103,6 +103,8 @@ class BumpPlayerBall {
     );
   }
 
+  double get effectiveStars => currency == 'ton' ? (betAmount * 100.0) : betAmount;
+
   String get displayName {
     if (isSystemBot) return 'Arena Core';
     if (isUser) return '@You';

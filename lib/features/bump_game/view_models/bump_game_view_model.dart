@@ -36,7 +36,8 @@ class BumpGameViewModel extends ChangeNotifier {
   BumpPlayerBall? _winner;
   BumpPlayerBall? get winner => _winner;
 
-  int _countdownMs = 15000;
+  int _countdownMs = 20000;
+  final Set<int> _scheduledJoinSeconds = {};
   int get countdownMs => _countdownMs;
 
   double get userTonBalance => _repository.userTonBalance;
@@ -117,31 +118,35 @@ class BumpGameViewModel extends ChangeNotifier {
     _serverSeedHash = sha256.convert(utf8.encode(rawSeed)).toString();
 
     // 1. First tiny ball/core: System Bot Player that puts random initial odds in game
-    final botOdds = 0.15 + (_random.nextInt(4) * 0.05); // 0.15 to 0.30 TON
+    // System bot starts each round placing a random amount of Stars between 10 to 150
+    final botStars = (10 + _random.nextInt(141)).toDouble();
     final systemBot = BumpPlayerBall(
       id: 'system_core',
       username: 'Arena Core',
       avatar: '',
       color: const Color(0xFFF97316),
       isSystemBot: true,
-      betAmount: double.parse(botOdds.toStringAsFixed(2)),
-      currency: 'ton',
-      radius: 14.0,
-      targetRadius: 14.0,
-      mass: 196.0,
+      betAmount: botStars,
+      currency: 'stars',
+      radius: 35.0, // x2.5 starter presence without inflating asset value
+      targetRadius: 35.0,
+      mass: 35.0 * 35.0,
       // PLACEHOLDER: system bot player
       isPlaceholder: true,
     );
 
     _balls = [systemBot];
     BumpPhysicsService.arrangePerimeterBalls(_balls);
+    BumpAudioService.playCoin(); // Coin sound for bot placement
 
     _status = BumpRoundStatus.waitingForPlayers;
-    _countdownMs = 15000;
+    _countdownMs = 20000;
+    _scheduledJoinSeconds.clear();
     notifyListeners();
 
-    // Automatically spawn an initial challenger NPC after 2.5s if user hasn't joined yet
-    Future.delayed(const Duration(milliseconds: 2500), () {
+    // Automatically spawn an initial challenger NPC after a random delay (1.5s - 4.5s) if user hasn't joined yet
+    final initialDelayMs = 1500 + _random.nextInt(3000);
+    Future.delayed(Duration(milliseconds: initialDelayMs), () {
       if (_status == BumpRoundStatus.waitingForPlayers && _balls.length == 1) {
         _spawnNpcPlayer();
       }
@@ -173,7 +178,7 @@ class BumpGameViewModel extends ChangeNotifier {
     );
 
     _balls.add(newBall);
-    BumpPhysicsService.updateBallMetrics(_balls, totalPotTon > 0 ? totalPotTon : totalPotStars.toDouble());
+    BumpPhysicsService.updateBallMetrics(_balls);
     BumpPhysicsService.arrangePerimeterBalls(_balls);
     BumpAudioService.playCoin();
 
@@ -185,10 +190,18 @@ class BumpGameViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Begins 15s pre-round betting countdown
+  /// Begins 20s pre-round betting countdown with organic join scheduling
   void _startCountdown() {
     _status = BumpRoundStatus.countdown;
-    _countdownMs = 15000;
+    _countdownMs = 20000; // 20s countdown
+    _scheduledJoinSeconds.clear();
+
+    // Pick 0 to 3 additional organic joins at random countdown seconds (between 2s and 18s)
+    final extraJoins = _random.nextInt(4);
+    while (_scheduledJoinSeconds.length < extraJoins) {
+      _scheduledJoinSeconds.add(2 + _random.nextInt(17));
+    }
+
     notifyListeners();
 
     _countdownTimer?.cancel();
@@ -203,12 +216,12 @@ class BumpGameViewModel extends ChangeNotifier {
 
       if (s == 3) {
         BumpAudioService.playBettingClosed();
-      } else if (s <= 10 && s > 3) {
+      } else if (s <= 5 && s > 0) {
         BumpAudioService.playWarningBeep();
       }
 
-      // Periodically add 1 more NPC during countdown if fewer than 5
-      if ((s == 11 || s == 6) && _balls.length < 5 && _random.nextBool()) {
+      // Trigger scheduled organic challenger joins
+      if (_scheduledJoinSeconds.contains(s) && _balls.length < 8) {
         _spawnNpcPlayer();
       }
 
@@ -251,7 +264,7 @@ class BumpGameViewModel extends ChangeNotifier {
       _balls.add(userBall);
     }
 
-    BumpPhysicsService.updateBallMetrics(_balls, totalPotTon > 0 ? totalPotTon : totalPotStars.toDouble());
+    BumpPhysicsService.updateBallMetrics(_balls);
     BumpPhysicsService.arrangePerimeterBalls(_balls);
     BumpAudioService.playCoin();
 

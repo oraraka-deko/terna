@@ -8,85 +8,104 @@ class BumpPhysicsService {
 
   static double _hypot(double a, double b) => math.sqrt(a * a + b * b);
 
-  /// Dynamically updates ball radius and mass based on share of total game assets pot
-  static void updateBallMetrics(List<BumpPlayerBall> balls, double totalPot) {
-    final effectivePot = totalPot > 0 ? totalPot : balls.fold<double>(0.0, (s, b) => s + b.betAmount);
-    final potSafe = effectivePot > 0 ? effectivePot : 1.0;
+  /// Dynamically updates ball radius and mass based on relative odds / stake ratios
+  /// - System bot alone starts at 35px (2.5x larger than before).
+  /// - When players join, the largest stake gets the maximum radius (40px).
+  /// - All other balls scale proportionally: Ri / Rmax ~ Vi / Vmax.
+  /// - As larger players join, existing balls shrink proportionally to keep max size capped at 40px.
+  static void updateBallMetrics(List<BumpPlayerBall> balls) {
+    if (balls.isEmpty) return;
+
+    if (balls.length == 1) {
+      final single = balls.first;
+      // System bot alone has large visible presence (~35px, 2.5x of previous 14px)
+      single.targetRadius = 35.0;
+      single.radius = 35.0;
+      single.mass = 35.0 * 35.0;
+      return;
+    }
+
+    // Find highest stake value across all participants
+    final maxStake = balls.fold<double>(
+      0.0,
+      (max, b) => math.max(max, b.effectiveStars),
+    );
+    final safeMaxStake = maxStake > 0 ? maxStake : 1.0;
+
+    const double minR = 16.0;
+    const double maxR = 40.0;
 
     for (final b in balls) {
-      if (b.isSystemBot) {
-        // System bot core has fixed compact radius
-        b.targetRadius = 14.0;
-        b.radius = 14.0;
-        b.mass = 196.0;
+      final ratio = (b.effectiveStars / safeMaxStake).clamp(0.01, 1.0);
+      // Proportional scaling: max stake gets maxR (40px), smaller stakes scale down smoothly
+      final targetR = minR + (maxR - minR) * ratio;
+
+      b.targetRadius = targetR;
+      if (b.vx == 0 && b.vy == 0) {
+        b.radius = targetR;
       } else {
-        final share = (b.betAmount / potSafe).clamp(0.01, 1.0);
-        // Responsive size: min 16px, max 38px based on odds
-        final r = (16.0 + math.sqrt(share) * 22.0).clamp(16.0, 38.0);
-        b.targetRadius = r;
-        if (b.radius == 20.0 && b.vx == 0 && b.vy == 0) {
-          b.radius = r;
-        } else {
-          // Smoothly interpolate radius to target
-          b.radius += (b.targetRadius - b.radius) * 0.15;
-        }
-        b.mass = b.radius * b.radius;
+        // Smooth transition during battle if stake changes
+        b.radius += (targetR - b.radius) * 0.2;
       }
+      b.mass = b.radius * b.radius;
     }
   }
 
-  /// Positions participants evenly along arena perimeter during Waiting / Countdown
+  /// Positions participants safely INSIDE the arena perimeter
+  /// Strictly guarantees balls never intersect or clip into the walls at start!
   static void arrangePerimeterBalls(List<BumpPlayerBall> balls) {
     const W = arenaSize;
     const H = arenaSize;
-    const perimeterPad = 48.0;
-    const innerW = W - perimeterPad * 2;
-    const innerH = H - perimeterPad * 2;
-    const totalPerim = (innerW + innerH) * 2;
 
     final count = balls.length;
     if (count == 0) return;
 
+    // Sort participants by stake descending so the biggest player gets prime placement
+    balls.sort((a, b) => b.effectiveStars.compareTo(a.effectiveStars));
+
     if (count == 1) {
       final b = balls[0];
       b.x = W / 2;
-      b.y = perimeterPad + 10;
+      b.y = pad + b.radius + 24.0; // Ample clearance from top wall
       b.vx = 0;
       b.vy = 0;
       b.state = BallState.alive;
       return;
     }
 
+    final maxR = balls.fold<double>(16.0, (m, b) => math.max(m, b.radius));
+    // Safe perimeter clearance: wall pad + max ball radius + 14px margin
+    final safePad = pad + maxR + 14.0;
+    final innerW = W - safePad * 2;
+    final innerH = H - safePad * 2;
+    final totalPerim = (innerW + innerH) * 2;
+
     for (int i = 0; i < count; i++) {
       final b = balls[i];
-      if (b.isSystemBot && count > 1) {
-        // System bot placed near top center
-        b.x = W / 2;
-        b.y = perimeterPad - 8;
-        b.vx = 0;
-        b.vy = 0;
-        b.state = BallState.alive;
-        continue;
-      }
-
       final distAlong = ((i + 0.5) / count) * totalPerim;
+
       if (distAlong < innerW) {
         // Top edge
-        b.x = perimeterPad + distAlong;
-        b.y = perimeterPad;
+        b.x = safePad + distAlong;
+        b.y = safePad;
       } else if (distAlong < innerW + innerH) {
         // Right edge
-        b.x = W - perimeterPad;
-        b.y = perimeterPad + (distAlong - innerW);
+        b.x = W - safePad;
+        b.y = safePad + (distAlong - innerW);
       } else if (distAlong < innerW * 2 + innerH) {
         // Bottom edge
-        b.x = W - perimeterPad - (distAlong - (innerW + innerH));
-        b.y = H - perimeterPad;
+        b.x = W - safePad - (distAlong - (innerW + innerH));
+        b.y = H - safePad;
       } else {
         // Left edge
-        b.x = perimeterPad;
-        b.y = H - perimeterPad - (distAlong - (innerW * 2 + innerH));
+        b.x = safePad;
+        b.y = H - safePad - (distAlong - (innerW * 2 + innerH));
       }
+
+      // Hard clamp within safe interior bounds
+      b.x = b.x.clamp(pad + b.radius + 8.0, W - pad - b.radius - 8.0);
+      b.y = b.y.clamp(pad + b.radius + 8.0, H - pad - b.radius - 8.0);
+
       b.vx = 0;
       b.vy = 0;
       b.state = BallState.alive;
@@ -104,8 +123,8 @@ class BumpPhysicsService {
     for (final b in balls) {
       if (b.state != BallState.alive) continue;
       final angleToCenter = math.atan2(center.y - b.y, center.x - b.x);
-      final scatter = (random.nextDouble() - 0.5) * 0.75;
-      final speed = 280.0 + random.nextDouble() * 80.0; // 280 to 360 px/s
+      final scatter = (random.nextDouble() - 0.5) * 0.65;
+      final speed = 310.0 + random.nextDouble() * 90.0; // 310 to 400 px/s
 
       b.vx = math.cos(angleToCenter + scatter) * speed;
       b.vy = math.sin(angleToCenter + scatter) * speed;
@@ -117,6 +136,8 @@ class BumpPhysicsService {
   }
 
   /// Main physics simulation tick in Zero Gravity
+  /// Lively elastic bounces (restitution 0.96 walls, 0.95 balls)
+  /// Real-world corner lip collisions for open hazard gaps!
   static void updatePhysicsStep({
     required double dt,
     required List<BumpPlayerBall> balls,
@@ -130,9 +151,10 @@ class BumpPhysicsService {
     const minY = pad;
     const maxY = arenaSize - pad;
 
-    final airDamp = math.pow(0.9985, dt * 60.0).toDouble();
+    // High lively glide: minimal friction damping
+    final airDamp = math.pow(0.9992, dt * 60.0).toDouble();
 
-    // 1. Move balls and handle exiting animations
+    // 1. Position Integration
     for (final b in balls) {
       if (b.state == BallState.exiting) {
         b.x += b.vx * dt;
@@ -149,22 +171,21 @@ class BumpPhysicsService {
 
       if (b.state != BallState.alive) continue;
 
-      // Zero-gravity glide integration
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.vx *= airDamp;
       b.vy *= airDamp;
 
-      // Maintain minimum exciting momentum
+      // Maintain lively fighting speed
       final spd = _hypot(b.vx, b.vy);
-      if (spd < 110.0 && spd > 0.01) {
-        final boost = 110.0 / spd;
+      if (spd < 140.0 && spd > 0.01) {
+        final boost = 140.0 / spd;
         b.vx *= boost;
         b.vy *= boost;
       }
     }
 
-    // 2. Ball-Ball Elastic Collisions (Momentum conservation with mass weighting)
+    // 2. Ball-Ball Elastic Collisions (High restitution 0.95, momentum transfer)
     final aliveBalls = balls.where((b) => b.state == BallState.alive).toList();
     for (int i = 0; i < aliveBalls.length; i++) {
       for (int j = i + 1; j < aliveBalls.length; j++) {
@@ -181,7 +202,7 @@ class BumpPhysicsService {
           final ny = dy / dist;
           final overlap = minDist - dist;
 
-          // Mass-weighted position displacement
+          // Mass-weighted overlap resolution
           final totalMass = b1.mass + b2.mass;
           final m1Ratio = b2.mass / totalMass;
           final m2Ratio = b1.mass / totalMass;
@@ -197,7 +218,7 @@ class BumpPhysicsService {
           final velAlongNormal = rvx * nx + rvy * ny;
 
           if (velAlongNormal > 0) {
-            const restitution = 0.94;
+            const restitution = 0.95; // Crisp snappy bounce
             final impulseMag = -(1.0 + restitution) * velAlongNormal / (1.0 / b1.mass + 1.0 / b2.mass);
 
             b1.vx += (impulseMag / b1.mass) * nx;
@@ -205,74 +226,225 @@ class BumpPhysicsService {
             b2.vx -= (impulseMag / b2.mass) * nx;
             b2.vy -= (impulseMag / b2.mass) * ny;
 
-            final intensity = (velAlongNormal / 420.0).clamp(0.15, 1.0);
+            final intensity = (velAlongNormal / 380.0).clamp(0.2, 1.0);
             onBallBump(intensity);
           }
         }
       }
     }
 
-    // 3. Wall Collisions & Open Edge Hazards
+    // 3. Wall Collisions, Open Gaps & Corner Lip Bouncing
+    const wallRestitution = 0.96; // Lively arena hockey-grade rail bounce
+
     for (final b in aliveBalls) {
-      // TOP WALL
+      // ---------------- TOP WALL ----------------
       if (b.y - b.radius < minY) {
-        if (_isThroughOpenHazard(WallSide.top, b.x, hazards)) {
-          b.state = BallState.exiting;
-          onEliminated(b);
-        } else {
-          b.y = minY + b.radius;
-          b.vy = b.vy.abs() * 0.92;
-          onWallBump((b.vy.abs() / 320.0).clamp(0.15, 1.0));
+        final hazard = hazards.where((h) => h.side == WallSide.top && h.status == EdgeHazardStatus.open).firstOrNull;
+        if (hazard != null) {
+          final p1x = hazard.startCoord;
+          final p2x = hazard.endCoord;
+
+          // Check corner lip 1 collision
+          final d1 = _hypot(b.x - p1x, b.y - minY);
+          if (d1 < b.radius && d1 > 0.001) {
+            final nx = (b.x - p1x) / d1;
+            final ny = (b.y - minY) / d1;
+            b.x = p1x + nx * b.radius;
+            b.y = minY + ny * b.radius;
+            final dot = b.vx * nx + b.vy * ny;
+            if (dot < 0) {
+              b.vx -= (1.0 + wallRestitution) * dot * nx;
+              b.vy -= (1.0 + wallRestitution) * dot * ny;
+            }
+            onWallBump(0.6);
+            continue;
+          }
+
+          // Check corner lip 2 collision
+          final d2 = _hypot(b.x - p2x, b.y - minY);
+          if (d2 < b.radius && d2 > 0.001) {
+            final nx = (b.x - p2x) / d2;
+            final ny = (b.y - minY) / d2;
+            b.x = p2x + nx * b.radius;
+            b.y = minY + ny * b.radius;
+            final dot = b.vx * nx + b.vy * ny;
+            if (dot < 0) {
+              b.vx -= (1.0 + wallRestitution) * dot * nx;
+              b.vy -= (1.0 + wallRestitution) * dot * ny;
+            }
+            onWallBump(0.6);
+            continue;
+          }
+
+          // In the open gap
+          if (b.x >= p1x + 4.0 && b.x <= p2x - 4.0) {
+            b.state = BallState.exiting;
+            onEliminated(b);
+            continue;
+          }
         }
+
+        // Solid wall or warning edge bounce
+        b.y = minY + b.radius;
+        b.vy = b.vy.abs() * wallRestitution;
+        onWallBump((b.vy.abs() / 300.0).clamp(0.2, 1.0));
       }
 
-      // BOTTOM WALL
+      // ---------------- BOTTOM WALL ----------------
       if (b.y + b.radius > maxY) {
-        if (_isThroughOpenHazard(WallSide.bottom, b.x, hazards)) {
-          b.state = BallState.exiting;
-          onEliminated(b);
-        } else {
-          b.y = maxY - b.radius;
-          b.vy = -b.vy.abs() * 0.92;
-          onWallBump((b.vy.abs() / 320.0).clamp(0.15, 1.0));
+        final hazard = hazards.where((h) => h.side == WallSide.bottom && h.status == EdgeHazardStatus.open).firstOrNull;
+        if (hazard != null) {
+          final p1x = hazard.startCoord;
+          final p2x = hazard.endCoord;
+
+          // Lip 1
+          final d1 = _hypot(b.x - p1x, b.y - maxY);
+          if (d1 < b.radius && d1 > 0.001) {
+            final nx = (b.x - p1x) / d1;
+            final ny = (b.y - maxY) / d1;
+            b.x = p1x + nx * b.radius;
+            b.y = maxY + ny * b.radius;
+            final dot = b.vx * nx + b.vy * ny;
+            if (dot < 0) {
+              b.vx -= (1.0 + wallRestitution) * dot * nx;
+              b.vy -= (1.0 + wallRestitution) * dot * ny;
+            }
+            onWallBump(0.6);
+            continue;
+          }
+
+          // Lip 2
+          final d2 = _hypot(b.x - p2x, b.y - maxY);
+          if (d2 < b.radius && d2 > 0.001) {
+            final nx = (b.x - p2x) / d2;
+            final ny = (b.y - maxY) / d2;
+            b.x = p2x + nx * b.radius;
+            b.y = maxY + ny * b.radius;
+            final dot = b.vx * nx + b.vy * ny;
+            if (dot < 0) {
+              b.vx -= (1.0 + wallRestitution) * dot * nx;
+              b.vy -= (1.0 + wallRestitution) * dot * ny;
+            }
+            onWallBump(0.6);
+            continue;
+          }
+
+          // In the open gap
+          if (b.x >= p1x + 4.0 && b.x <= p2x - 4.0) {
+            b.state = BallState.exiting;
+            onEliminated(b);
+            continue;
+          }
         }
+
+        b.y = maxY - b.radius;
+        b.vy = -b.vy.abs() * wallRestitution;
+        onWallBump((b.vy.abs() / 300.0).clamp(0.2, 1.0));
       }
 
-      // LEFT WALL
+      // ---------------- LEFT WALL ----------------
       if (b.x - b.radius < minX) {
-        if (_isThroughOpenHazard(WallSide.left, b.y, hazards)) {
-          b.state = BallState.exiting;
-          onEliminated(b);
-        } else {
-          b.x = minX + b.radius;
-          b.vx = b.vx.abs() * 0.92;
-          onWallBump((b.vx.abs() / 320.0).clamp(0.15, 1.0));
+        final hazard = hazards.where((h) => h.side == WallSide.left && h.status == EdgeHazardStatus.open).firstOrNull;
+        if (hazard != null) {
+          final p1y = hazard.startCoord;
+          final p2y = hazard.endCoord;
+
+          // Lip 1
+          final d1 = _hypot(b.x - minX, b.y - p1y);
+          if (d1 < b.radius && d1 > 0.001) {
+            final nx = (b.x - minX) / d1;
+            final ny = (b.y - p1y) / d1;
+            b.x = minX + nx * b.radius;
+            b.y = p1y + ny * b.radius;
+            final dot = b.vx * nx + b.vy * ny;
+            if (dot < 0) {
+              b.vx -= (1.0 + wallRestitution) * dot * nx;
+              b.vy -= (1.0 + wallRestitution) * dot * ny;
+            }
+            onWallBump(0.6);
+            continue;
+          }
+
+          // Lip 2
+          final d2 = _hypot(b.x - minX, b.y - p2y);
+          if (d2 < b.radius && d2 > 0.001) {
+            final nx = (b.x - minX) / d2;
+            final ny = (b.y - p2y) / d2;
+            b.x = minX + nx * b.radius;
+            b.y = p2y + ny * b.radius;
+            final dot = b.vx * nx + b.vy * ny;
+            if (dot < 0) {
+              b.vx -= (1.0 + wallRestitution) * dot * nx;
+              b.vy -= (1.0 + wallRestitution) * dot * ny;
+            }
+            onWallBump(0.6);
+            continue;
+          }
+
+          // In open gap
+          if (b.y >= p1y + 4.0 && b.y <= p2y - 4.0) {
+            b.state = BallState.exiting;
+            onEliminated(b);
+            continue;
+          }
         }
+
+        b.x = minX + b.radius;
+        b.vx = b.vx.abs() * wallRestitution;
+        onWallBump((b.vx.abs() / 300.0).clamp(0.2, 1.0));
       }
 
-      // RIGHT WALL
+      // ---------------- RIGHT WALL ----------------
       if (b.x + b.radius > maxX) {
-        if (_isThroughOpenHazard(WallSide.right, b.y, hazards)) {
-          b.state = BallState.exiting;
-          onEliminated(b);
-        } else {
-          b.x = maxX - b.radius;
-          b.vx = -b.vx.abs() * 0.92;
-          onWallBump((b.vx.abs() / 320.0).clamp(0.15, 1.0));
-        }
-      }
-    }
-  }
+        final hazard = hazards.where((h) => h.side == WallSide.right && h.status == EdgeHazardStatus.open).firstOrNull;
+        if (hazard != null) {
+          final p1y = hazard.startCoord;
+          final p2y = hazard.endCoord;
 
-  /// Determines whether the ball coordinate aligns with an OPEN edge hazard
-  static bool _isThroughOpenHazard(WallSide side, double coord, List<EdgeHazard> hazards) {
-    for (final h in hazards) {
-      if (h.side == side && h.status == EdgeHazardStatus.open) {
-        if (coord >= h.startCoord && coord <= h.endCoord) {
-          return true;
+          // Lip 1
+          final d1 = _hypot(b.x - maxX, b.y - p1y);
+          if (d1 < b.radius && d1 > 0.001) {
+            final nx = (b.x - maxX) / d1;
+            final ny = (b.y - p1y) / d1;
+            b.x = maxX + nx * b.radius;
+            b.y = p1y + ny * b.radius;
+            final dot = b.vx * nx + b.vy * ny;
+            if (dot < 0) {
+              b.vx -= (1.0 + wallRestitution) * dot * nx;
+              b.vy -= (1.0 + wallRestitution) * dot * ny;
+            }
+            onWallBump(0.6);
+            continue;
+          }
+
+          // Lip 2
+          final d2 = _hypot(b.x - maxX, b.y - p2y);
+          if (d2 < b.radius && d2 > 0.001) {
+            final nx = (b.x - maxX) / d2;
+            final ny = (b.y - p2y) / d2;
+            b.x = maxX + nx * b.radius;
+            b.y = p2y + ny * b.radius;
+            final dot = b.vx * nx + b.vy * ny;
+            if (dot < 0) {
+              b.vx -= (1.0 + wallRestitution) * dot * nx;
+              b.vy -= (1.0 + wallRestitution) * dot * ny;
+            }
+            onWallBump(0.6);
+            continue;
+          }
+
+          // In open gap
+          if (b.y >= p1y + 4.0 && b.y <= p2y - 4.0) {
+            b.state = BallState.exiting;
+            onEliminated(b);
+            continue;
+          }
         }
+
+        b.x = maxX - b.radius;
+        b.vx = -b.vx.abs() * wallRestitution;
+        onWallBump((b.vx.abs() / 300.0).clamp(0.2, 1.0));
       }
     }
-    return false;
   }
 }

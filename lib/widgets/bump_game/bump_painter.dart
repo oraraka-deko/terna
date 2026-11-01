@@ -49,9 +49,6 @@ class BumpPainter extends CustomPainter {
     canvas.save();
     canvas.clipRRect(arenaRRect);
 
-    // Subtle Crown / Crest Logo Watermark in center (as seen in screenshots)
-    _drawCrownWatermark(canvas, W / 2, H / 2);
-
     // "WAITING" text if waiting for more players
     if (status == BumpRoundStatus.waitingForPlayers) {
       final textPainter = TextPainter(
@@ -84,29 +81,6 @@ class BumpPainter extends CustomPainter {
     _drawPerimeterWalls(canvas, W, H, pad, cornerRadius);
 
     canvas.restore(); // Scale
-  }
-
-  /// Subtle dark crown / crest logo watermark in center
-  void _drawCrownWatermark(Canvas canvas, double cx, double cy) {
-    final crownPath = Path();
-    const w = 180.0;
-    const h = 120.0;
-    final left = cx - w / 2;
-    final top = cy - h / 2;
-
-    crownPath.moveTo(left, top + h * 0.4);
-    crownPath.lineTo(left + w * 0.22, top + h * 0.85);
-    crownPath.lineTo(left + w * 0.5, top + h * 0.2);
-    crownPath.lineTo(left + w * 0.78, top + h * 0.85);
-    crownPath.lineTo(left + w, top + h * 0.4);
-    crownPath.lineTo(left + w * 0.85, top + h);
-    crownPath.lineTo(left + w * 0.15, top + h);
-    crownPath.close();
-
-    final crownPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.025)
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(crownPath, crownPaint);
   }
 
   /// Draws perimeter walls respecting open hazard gaps and blinking red warnings

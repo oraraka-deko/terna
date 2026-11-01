@@ -8,45 +8,67 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Arena Bump Physics & Metrics Tests', () {
-    test('Dynamic ball metrics resize balls based on pot share', () {
-      final b1 = BumpPlayerBall(
-        id: 'p1',
-        username: '@alice',
-        avatar: '',
-        color: Colors.blue,
-        betAmount: 9.0,
-        currency: 'ton',
-      );
-      final b2 = BumpPlayerBall(
-        id: 'p2',
-        username: '@bob',
-        avatar: '',
-        color: Colors.red,
-        betAmount: 1.0,
-        currency: 'ton',
-      );
+    test('System bot alone has 35px starter radius (x2.5 larger)', () {
       final bot = BumpPlayerBall(
         id: 'system_core',
         username: 'Arena Core',
         avatar: '',
         color: Colors.orange,
         isSystemBot: true,
-        betAmount: 0.2,
-        currency: 'ton',
+        betAmount: 100.0,
+        currency: 'stars',
       );
-
-      final balls = [b1, b2, bot];
-      BumpPhysicsService.updateBallMetrics(balls, 10.2);
-
-      // System bot has compact 14px radius
-      expect(bot.radius, 14.0);
-
-      // b1 has 90% of pot -> much larger radius and mass than b2
-      expect(b1.targetRadius, greaterThan(b2.targetRadius));
-      expect(b1.mass, greaterThan(b2.mass));
+      BumpPhysicsService.updateBallMetrics([bot]);
+      expect(bot.radius, 35.0);
     });
 
-    test('Perimeter arrangement places balls in arena bounds', () {
+    test('Dynamic relative ball metrics scale proportionally to stake ratios', () {
+      final bot = BumpPlayerBall(
+        id: 'system_core',
+        username: 'Arena Core',
+        avatar: '',
+        color: Colors.orange,
+        isSystemBot: true,
+        betAmount: 100.0,
+        currency: 'stars',
+      );
+      final user = BumpPlayerBall(
+        id: 'p1',
+        username: '@alice',
+        avatar: '',
+        color: Colors.blue,
+        betAmount: 200.0,
+        currency: 'stars',
+      );
+
+      final balls = [bot, user];
+      BumpPhysicsService.updateBallMetrics(balls);
+
+      // User has max stake (200) -> capped at max 40.0px
+      expect(user.targetRadius, 40.0);
+      // Bot has half user's stake -> smaller target radius
+      expect(bot.targetRadius, lessThan(user.targetRadius));
+      expect(bot.targetRadius, greaterThanOrEqualTo(16.0));
+
+      // Now a 500 Stars whale joins: existing balls shrink proportionally
+      final whale = BumpPlayerBall(
+        id: 'p2',
+        username: '@whale',
+        avatar: '',
+        color: Colors.purple,
+        betAmount: 500.0,
+        currency: 'stars',
+      );
+      balls.add(whale);
+      BumpPhysicsService.updateBallMetrics(balls);
+
+      expect(whale.targetRadius, 40.0);
+      // Previous user and bot are shrunk
+      expect(user.targetRadius, lessThan(40.0));
+      expect(bot.targetRadius, lessThan(user.targetRadius));
+    });
+
+    test('Perimeter arrangement places balls strictly inside arena without edge clipping', () {
       final balls = List.generate(
         4,
         (i) => BumpPlayerBall(
@@ -163,6 +185,47 @@ void main() {
       // Ball passes through open edge and gets eliminated!
       expect(eliminated, isTrue);
       expect(b.state, BallState.exiting);
+    });
+
+    test('Open hazard lip/corner bounces ball hitting the wall vertex', () {
+      // Ball aimed right at the corner lip (x: 180.0, y: 16.0)
+      final b = BumpPlayerBall(
+        id: 'p1',
+        username: '@alice',
+        avatar: '',
+        color: Colors.blue,
+        betAmount: 1.0,
+        currency: 'ton',
+        x: 175.0, // Just to the left of the opening start (180.0)
+        y: 25.0,
+        vx: 50.0,
+        vy: -100.0,
+        radius: 18.0,
+      );
+
+      final openHazard = EdgeHazard(
+        side: WallSide.top,
+        startCoord: 180.0,
+        endCoord: 280.0,
+        status: EdgeHazardStatus.open,
+      );
+
+      bool wallBumped = false;
+      bool eliminated = false;
+
+      BumpPhysicsService.updatePhysicsStep(
+        dt: 0.016,
+        balls: [b],
+        hazards: [openHazard],
+        onBallBump: (_) {},
+        onWallBump: (_) => wallBumped = true,
+        onEliminated: (_) => eliminated = true,
+      );
+
+      // Must bounce off corner vertex, NOT be eliminated
+      expect(wallBumped, isTrue);
+      expect(eliminated, isFalse);
+      expect(b.state, BallState.alive);
     });
   });
 

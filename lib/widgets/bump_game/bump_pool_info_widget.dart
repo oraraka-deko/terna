@@ -38,8 +38,8 @@ class BumpPoolInfoWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final secondsLeft = (countdownMs / 1000).clamp(0, 15);
-    final progress = (secondsLeft / 15.0).clamp(0.0, 1.0);
+    final secondsLeft = (countdownMs / 1000).clamp(0, 20);
+    final progress = (secondsLeft / 20.0).clamp(0.0, 1.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
