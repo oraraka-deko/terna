@@ -3,6 +3,7 @@ import 'package:terna/screens/games/upgrade_game_screen.dart';
 import 'package:terna/screens/games/tower_game_screen.dart';
 import 'package:terna/screens/games/plinko_game_screen.dart';
 import 'package:terna/screens/games/territory_game_screen.dart';
+import 'package:terna/screens/games/bump_game_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_telegram_miniapp/flutter_telegram_miniapp.dart';
 import 'package:terna/screens/games/american_roulette_game.dart';
@@ -280,7 +281,7 @@ class _AppDrawerScreenState extends State<AppDrawerScreen> {
         screen: const PlinkoGameScreen(),
       ),
       AppItem(
-        name: 'Territory Jackpot',
+        name: 'Arena Hockey',
         hasDot: true,
         iconWidget: Container(
           width: 58,
@@ -310,6 +311,38 @@ class _AppDrawerScreenState extends State<AppDrawerScreen> {
           ),
         ),
         screen: const TerritoryGameScreen(),
+      ),
+      AppItem(
+        name: 'Arena Bump',
+        hasDot: true,
+        iconWidget: Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2E1065), Color(0xFF0F172A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: const Color(0xFF8B5CF6), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.sports_esports_rounded,
+              color: Color(0xFFC084FC),
+              size: 30,
+            ),
+          ),
+        ),
+        screen: const BumpGameScreen(),
       ),
       AppItem(
         name: 'YouTube',
