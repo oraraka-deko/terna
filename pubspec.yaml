@@ -91,6 +91,8 @@ flutter:
     - assets/mines_bomb_game/UI_assets/
     - assets/mines_bomb_game/UI_assets_v2/
     - assets/sounds/shared/
+    - assets/npc/
+    - assets/npc/avatars/
     # - flutter_scene_generated/
     # - path: flutter_scene_generated/metal_ios/
     #   platforms:
