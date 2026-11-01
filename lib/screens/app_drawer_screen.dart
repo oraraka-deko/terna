@@ -1,5 +1,6 @@
 import 'package:terna/screens/games/mines_arena_game.dart';
 import 'package:terna/screens/games/upgrade_game_screen.dart';
+import 'package:terna/screens/games/tower_game_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_telegram_miniapp/flutter_telegram_miniapp.dart';
 import 'package:terna/screens/games/american_roulette_game.dart';
@@ -211,6 +212,38 @@ class _AppDrawerScreenState extends State<AppDrawerScreen> {
           ),
         ),
         screen: const UpgradeGameScreen(),
+      ),
+      AppItem(
+        name: 'Tower',
+        hasDot: true,
+        iconWidget: Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2E1065), Color(0xFF0F172A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: const Color(0xFFA855F7), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFA855F7).withValues(alpha: 0.35),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.stairs_rounded,
+              color: Color(0xFFC084FC),
+              size: 32,
+            ),
+          ),
+        ),
+        screen: const TowerGameScreen(),
       ),
       AppItem(
         name: 'YouTube',
