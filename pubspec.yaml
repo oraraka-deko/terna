@@ -93,6 +93,9 @@ flutter:
     - assets/sounds/shared/
     - assets/npc/
     - assets/npc/avatars/
+    - assets/cards/
+    - assets/cards/white/
+    - assets/cards/black/
     # - flutter_scene_generated/
     # - path: flutter_scene_generated/metal_ios/
     #   platforms:

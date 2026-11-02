@@ -5,6 +5,7 @@ import 'package:terna/screens/games/plinko_game_screen.dart';
 import 'package:terna/screens/games/territory_game_screen.dart';
 import 'package:terna/screens/games/bump_game_screen.dart';
 import 'package:terna/screens/gift_shop/gift_shop_screen.dart';
+import 'package:terna/screens/games/higher_lower_game_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_telegram_miniapp/flutter_telegram_miniapp.dart';
 import 'package:terna/screens/games/american_roulette_game.dart';
@@ -376,6 +377,38 @@ class _AppDrawerScreenState extends State<AppDrawerScreen> {
           ),
         ),
         screen: const GiftShopScreen(),
+      ),
+      AppItem(
+        name: 'Higher or Lower',
+        hasDot: true,
+        iconWidget: Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3B0B1F), Color(0xFF13060E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: const Color(0xFFEAB308), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFEAB308).withValues(alpha: 0.35),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.style_rounded,
+              color: Color(0xFFEAB308),
+              size: 30,
+            ),
+          ),
+        ),
+        screen: const HigherLowerGameScreen(),
       ),
       AppItem(
         name: 'YouTube',
