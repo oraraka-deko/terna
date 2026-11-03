@@ -71,7 +71,8 @@ class _TerritoryBettingControlsState extends State<TerritoryBettingControls> {
   }
 
   bool get canBet {
-    final isOpen = widget.roundState.status == RoundStatus.bettingOpen &&
+    final isOpen = (widget.roundState.status == RoundStatus.bettingOpen ||
+            widget.roundState.status == RoundStatus.waitingForPlayers) &&
         !widget.roundState.isBettingClosed;
     if (!isOpen) return false;
 
@@ -316,4 +317,3 @@ class _TerritoryBettingControlsState extends State<TerritoryBettingControls> {
     );
   }
 }
-

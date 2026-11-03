@@ -217,4 +217,3 @@ class GiftShopViewModel extends ChangeNotifier {
     return true;
   }
 }
-

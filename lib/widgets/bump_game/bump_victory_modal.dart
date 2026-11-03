@@ -1,3 +1,4 @@
+import 'package:terna/core/widgets/safe_avatar_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terna/models/bump_game/bump_models.dart';
@@ -100,7 +101,7 @@ class _BumpVictoryModalState extends State<BumpVictoryModal> {
                       radius: 40,
                       backgroundColor: widget.winner.color,
                       backgroundImage: widget.winner.avatar.isNotEmpty
-                          ? AssetImage(widget.winner.avatar)
+                          ? safeImageProvider(widget.winner.avatar)!
                           : null,
                       child: widget.winner.avatar.isEmpty
                           ? Text(

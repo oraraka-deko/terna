@@ -28,7 +28,9 @@ void main() {
         amount: 1.0,
         totalBet: 10.0,
       );
-      final slices = TerritorySlicingService.computeProportionalTerritories([bet]);
+      final slices = TerritorySlicingService.computeProportionalTerritories([
+        bet,
+      ]);
       expect(slices.length, 1);
       expect(slices.first.playerId, 'p1');
       expect(slices.first.winProbability, 1.0);
@@ -54,7 +56,10 @@ void main() {
         amount: 1.0,
         totalBet: 10.0,
       );
-      final slices = TerritorySlicingService.computeProportionalTerritories([p1, p2]);
+      final slices = TerritorySlicingService.computeProportionalTerritories([
+        p1,
+        p2,
+      ]);
       expect(slices.length, 2);
       expect(slices[0].playerId, 'p1');
       expect(slices[1].playerId, 'p2');
@@ -92,9 +97,16 @@ void main() {
           totalBet: 10.0,
         ),
       ];
-      final slices = TerritorySlicingService.computeProportionalTerritories(bets);
+      final slices = TerritorySlicingService.computeProportionalTerritories(
+        bets,
+      );
       expect(slices.length, 3);
-      expect(slices[0].winProbability + slices[1].winProbability + slices[2].winProbability, closeTo(1.0, 0.01));
+      expect(
+        slices[0].winProbability +
+            slices[1].winProbability +
+            slices[2].winProbability,
+        closeTo(1.0, 0.01),
+      );
     });
 
     test('4 players generate 2D tessellation', () {
@@ -110,7 +122,9 @@ void main() {
           totalBet: 10.0,
         ),
       );
-      final slices = TerritorySlicingService.computeProportionalTerritories(bets);
+      final slices = TerritorySlicingService.computeProportionalTerritories(
+        bets,
+      );
       expect(slices.length, 4);
       for (final s in slices) {
         expect(s.points.length, greaterThanOrEqualTo(3));
@@ -125,12 +139,15 @@ void main() {
         TerritoryPoint(0, 100),
       ];
       expect(TerritorySlicingService.isPointInPolygon(50, 50, square), isTrue);
-      expect(TerritorySlicingService.isPointInPolygon(150, 50, square), isFalse);
+      expect(
+        TerritorySlicingService.isPointInPolygon(150, 50, square),
+        isFalse,
+      );
     });
   });
 
   group('Territory Physics Service Tests', () {
-    test('simulateAirHockeyFlight produces valid trajectory ending in winner territory', () {
+    test('simulateAirHockeyFlight derives a reproducible winner from its landing point', () {
       const p1 = PlayerBet(
         playerId: 'p1',
         username: '@alice',
@@ -149,26 +166,42 @@ void main() {
         amount: 1.0,
         totalBet: 10.0,
       );
-      final territories = TerritorySlicingService.computeProportionalTerritories([p1, p2]);
+      final territories =
+          TerritorySlicingService.computeProportionalTerritories([p1, p2]);
 
       final trajectory = TerritoryPhysicsService.simulateAirHockeyFlight(
-        seed: 12345,
-        winnerPlayerId: 'p1',
+        seed: '12345',
         territories: territories,
         durationMs: 8000.0,
       );
+      final repeatedTrajectory =
+          TerritoryPhysicsService.simulateAirHockeyFlight(
+            seed: '12345',
+            territories: territories,
+            durationMs: 8000.0,
+          );
 
       expect(trajectory.points, isNotEmpty);
-      expect(trajectory.winnerPlayerId, 'p1');
       expect(trajectory.finalX, greaterThan(0));
       expect(trajectory.finalY, greaterThan(0));
+      expect(
+        trajectory.points.map((point) => point.toJson()).toList(),
+        repeatedTrajectory.points.map((point) => point.toJson()).toList(),
+      );
+      for (final point in trajectory.points) {
+        expect(point.x * 100, closeTo((point.x * 100).roundToDouble(), 0.0001));
+        expect(point.y * 100, closeTo((point.y * 100).roundToDouble(), 0.0001));
+        expect(point.vx * 100, closeTo((point.vx * 100).roundToDouble(), 0.0001));
+        expect(point.vy * 100, closeTo((point.vy * 100).roundToDouble(), 0.0001));
+      }
 
       final landedPoly = TerritorySlicingService.findPlayerAtPoint(
         trajectory.finalX,
         trajectory.finalY,
         territories,
       );
-      expect(landedPoly?.playerId, 'p1');
+      expect(landedPoly, isNotNull);
+      expect(trajectory.winnerPlayerId, landedPoly!.playerId);
     });
 
     test('sampleTrajectory smoothly interpolates positions', () {
@@ -176,7 +209,14 @@ void main() {
         points: const [
           PhysicsPoint(x: 230, y: 230, vx: 100, vy: 100, timeMs: 0),
           PhysicsPoint(x: 300, y: 300, vx: 50, vy: 50, timeMs: 4000),
-          PhysicsPoint(x: 350, y: 350, vx: 0, vy: 0, timeMs: 8000, isStopped: true),
+          PhysicsPoint(
+            x: 350,
+            y: 350,
+            vx: 0,
+            vy: 0,
+            timeMs: 8000,
+            isStopped: true,
+          ),
         ],
         wallHits: [],
         finalX: 350,
@@ -203,12 +243,15 @@ void main() {
   });
 
   group('NPC Engine & Repository Tests', () {
-    test('generateNpcBet produces realistic simulated bets tagged as placeholder', () {
-      final bet = NpcEngineService.generateNpcBet(index: 0);
-      expect(bet.isPlaceholder, isTrue);
-      expect(bet.playerId.startsWith('npc_'), isTrue);
-      expect(bet.amount, greaterThan(0));
-    });
+    test(
+      'generateNpcBet produces realistic simulated bets tagged as placeholder',
+      () {
+        final bet = NpcEngineService.generateNpcBet(index: 0);
+        expect(bet.isPlaceholder, isTrue);
+        expect(bet.playerId.startsWith('npc_'), isTrue);
+        expect(bet.amount, greaterThan(0));
+      },
+    );
 
     test('TerritoryGameRepository handles balances and round creation', () {
       final repo = TerritoryGameRepository();
@@ -225,8 +268,8 @@ void main() {
       final round = repo.createNewRound();
       expect(round.status, RoundStatus.bettingOpen);
       expect(round.serverSeedHash, isNotEmpty);
-      expect(round.bets, isNotEmpty);
+      expect(round.revealedServerSeed, isNull);
+      expect(round.bets, isEmpty);
     });
   });
 }
-

@@ -73,7 +73,7 @@ class BettingPanel extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '\$${game.currentBet}',
+                        '${game.currentBet} ⭐',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -107,7 +107,7 @@ class BettingPanel extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '2X Payout: +\$${game.currentBet}',
+                          '2X Payout: +${game.currentBet} ⭐',
                           style: const TextStyle(
                             color: Color(0xFF69F0AE),
                             fontSize: 13,
@@ -122,26 +122,26 @@ class BettingPanel extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              // Chip Buttons ($5, $10, $25, $50, Half, All-In)
+              // Star-denominated chip buttons.
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 alignment: WrapAlignment.center,
                 children: [
                   _ChipButton(
-                    label: '\$10',
+                    label: '10 ⭐',
                     onTap: () => game.setBet(10),
                     disabled: game.isFlipping || game.playerBalance < 10,
                     isActive: game.currentBet == 10,
                   ),
                   _ChipButton(
-                    label: '\$25',
+                    label: '25 ⭐',
                     onTap: () => game.setBet(25),
                     disabled: game.isFlipping || game.playerBalance < 25,
                     isActive: game.currentBet == 25,
                   ),
                   _ChipButton(
-                    label: '\$50',
+                    label: '50 ⭐',
                     onTap: () => game.setBet(50),
                     disabled: game.isFlipping || game.playerBalance < 50,
                     isActive: game.currentBet == 50,
@@ -387,7 +387,7 @@ class _FlipActionButton extends StatelessWidget {
         ],
       ),
       child: ElevatedButton(
-        onPressed: (isFlipping) ? null : onPressed,
+        onPressed: (isFlipping || isBankrupt) ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -418,10 +418,11 @@ class _FlipActionButton extends StatelessWidget {
                 ),
               ),
             ] else if (isBankrupt) ...[
-              const Icon(Icons.refresh_rounded, color: Colors.white, size: 24),
+              const Icon(Icons.account_balance_wallet_outlined,
+                  color: Colors.white, size: 24),
               const SizedBox(width: 8),
               const Text(
-                'CLAIM \$100 RESTART',
+                'NO STARS - OPEN WALLET',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -439,7 +440,7 @@ class _FlipActionButton extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'PLAY ${game.selectedSide.displayName.toUpperCase()} (\$${game.currentBet})',
+                'PLAY ${game.selectedSide.displayName.toUpperCase()} (${game.currentBet} ⭐)',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,

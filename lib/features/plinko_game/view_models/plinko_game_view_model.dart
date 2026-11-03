@@ -40,6 +40,8 @@ class PlinkoGameViewModel extends ChangeNotifier {
   PlinkoWinRecord? lastWin;
 
   Ticker? _ticker;
+  bool isDropping = false;
+  String? errorMessage;
 
   double get tonBalance => repository.tonBalance;
   int get starsBalance => repository.starsBalance;
@@ -156,75 +158,117 @@ class PlinkoGameViewModel extends ChangeNotifier {
 
   // --- Drop Ball Action ---
 
-  void dropBall() {
-    final currentBal = currency == PlinkoCurrency.ton ? tonBalance : starsBalance.toDouble();
-    if (currentBal < betAmount || betAmount <= 0) {
+  Future<void> dropBall() async {
+    if (isDropping) return;
+    final selectedCurrency = currency;
+    final selectedBet = betAmount;
+    final selectedRisk = risk;
+    final currentBal =
+        selectedCurrency == PlinkoCurrency.ton ? tonBalance : starsBalance.toDouble();
+    if (currentBal < selectedBet || selectedBet <= 0) {
+      errorMessage = 'Insufficient balance for this bet.';
       HapticFeedbackService.error();
+      notifyListeners();
       return;
     }
 
-    // Deduct bet from demo balance
-    repository.deductBalance(currency, betAmount);
+    isDropping = true;
+    errorMessage = null;
+    notifyListeners();
 
-    PlinkoAudioService.playDrop();
-    HapticFeedbackService.lightImpact();
-
-    final path = repository.generatePath();
-    final bucketIndex = path.reduce((a, b) => a + b); // 0 to 12
-    final multiplier = risk.multipliers[bucketIndex];
-    final payout = currency == PlinkoCurrency.ton
-        ? double.parse((betAmount * multiplier).toStringAsFixed(4))
-        : (betAmount * multiplier).roundToDouble();
-
-    // Build waypoints through peg grid
-    final waypoints = <PlinkoWaypoint>[
-      const PlinkoWaypoint(x: width / 2.0, y: 35.0),
-    ];
-
-    var col = 1;
-    for (var r = 0; r < rows; r++) {
-      final targetX = getPegX(r, col);
-      final targetY = getPegY(r);
-
-      final pegIdx = pegs.indexWhere(
-        (p) => (p.y - targetY).abs() < 4 && (p.x - targetX).abs() < 4,
+    try {
+      final result = await repository.requestDropFromBackend(
+        betAmount: selectedBet,
+        currency: selectedCurrency,
+        risk: selectedRisk,
       );
+      final rawPath = result['path'];
+      if (rawPath is! List) {
+        throw const FormatException('The backend returned an invalid Plinko path.');
+      }
+      final path = rawPath.map((step) {
+        if (step is! num || (step != 0 && step != 1)) {
+          throw const FormatException('The backend returned an invalid Plinko path.');
+        }
+        return step.toInt();
+      }).toList();
+      final bucketValue = result['terminalBin'];
+      final multiplierValue = result['multiplier'];
+      final payoutValue = result['payout'];
+      if (path.length != rows ||
+          bucketValue is! num ||
+          multiplierValue is! num ||
+          payoutValue is! num) {
+        throw const FormatException('The backend returned an incomplete Plinko result.');
+      }
 
+      final bucketIndex = bucketValue.toInt();
+      if (bucketIndex < 0 ||
+          bucketIndex >= buckets.length ||
+          path.reduce((a, b) => a + b) != bucketIndex) {
+        throw const FormatException('The backend returned an inconsistent Plinko result.');
+      }
+      final multiplier = multiplierValue.toDouble();
+      final payout = payoutValue.toDouble();
+
+      PlinkoAudioService.playDrop();
+      HapticFeedbackService.lightImpact();
+
+      // Build waypoints through peg grid
+      final waypoints = <PlinkoWaypoint>[
+        const PlinkoWaypoint(x: width / 2.0, y: 35.0),
+      ];
+
+      var col = 1;
+      for (var r = 0; r < rows; r++) {
+        final targetX = getPegX(r, col);
+        final targetY = getPegY(r);
+
+        final pegIdx = pegs.indexWhere(
+          (p) => (p.y - targetY).abs() < 4 && (p.x - targetX).abs() < 4,
+        );
+
+        waypoints.add(
+          PlinkoWaypoint(
+            x: targetX,
+            y: targetY,
+            pegIdx: pegIdx >= 0 ? pegIdx : null,
+          ),
+        );
+
+        col += path[r];
+      }
+
+      final targetBucket = buckets[bucketIndex];
       waypoints.add(
         PlinkoWaypoint(
-          x: targetX,
-          y: targetY,
-          pegIdx: pegIdx >= 0 ? pegIdx : null,
+          x: targetBucket.x + (targetBucket.w / 2.0),
+          y: height - 40.0,
+          isBucket: true,
         ),
       );
 
-      col += path[r];
+      final ball = PlinkoBall(
+        id: 'ball_${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(9999)}',
+        x: width / 2.0,
+        y: 35.0,
+        currency: selectedCurrency,
+        betAmount: selectedBet,
+        multiplier: multiplier,
+        payoutAmount: payout,
+        bucketIndex: bucketIndex,
+        waypoints: waypoints,
+        isPlaceholder: false,
+      );
+
+      balls.add(ball);
+    } catch (error) {
+      errorMessage = error.toString();
+      HapticFeedbackService.error();
+    } finally {
+      isDropping = false;
+      notifyListeners();
     }
-
-    final targetBucket = buckets[bucketIndex.clamp(0, buckets.length - 1)];
-    waypoints.add(
-      PlinkoWaypoint(
-        x: targetBucket.x + (targetBucket.w / 2.0),
-        y: height - 40.0,
-        isBucket: true,
-      ),
-    );
-
-    final ball = PlinkoBall(
-      id: 'ball_${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(9999)}',
-      x: width / 2.0,
-      y: 35.0,
-      currency: currency,
-      betAmount: betAmount,
-      multiplier: multiplier,
-      payoutAmount: payout,
-      bucketIndex: bucketIndex,
-      waypoints: waypoints,
-      isPlaceholder: true, // FLAG: simulated offline path
-    );
-
-    balls.add(ball);
-    notifyListeners();
   }
 
   // --- Continuous Animation Loop ---
@@ -277,16 +321,13 @@ class PlinkoGameViewModel extends ChangeNotifier {
               final b = buckets[ball.bucketIndex.clamp(0, buckets.length - 1)];
               b.hitCount = 1.0;
 
-              // Credit winnings
-              repository.creditBalance(ball.currency, ball.payoutAmount);
-
               final winRec = PlinkoWinRecord(
                 id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
                 multiplier: ball.multiplier,
                 color: b.color,
                 payout: ball.payoutAmount,
                 currency: ball.currency,
-                isPlaceholder: true, // FLAG PLACEHOLDER
+                isPlaceholder: false,
               );
 
               lastWin = winRec;

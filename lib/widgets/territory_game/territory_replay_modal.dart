@@ -43,8 +43,10 @@ class _TerritoryReplayModalState extends State<TerritoryReplayModal> {
     _territories = TerritorySlicingService.computeProportionalTerritories(widget.record.players);
     _trajectory = widget.record.trajectory ??
         TerritoryPhysicsService.simulateAirHockeyFlight(
-          seed: widget.record.roundId,
-          winnerPlayerId: widget.record.winner.playerId,
+          seed: TerritoryPhysicsService.deriveRoundSeed(
+            widget.record.revealedServerSeed,
+            widget.record.roundId,
+          ),
           territories: _territories,
           durationMs: 8000.0,
         );
@@ -315,4 +317,3 @@ class _TerritoryReplayModalState extends State<TerritoryReplayModal> {
     );
   }
 }
-

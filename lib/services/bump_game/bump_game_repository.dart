@@ -1,14 +1,11 @@
+import 'package:terna/services/wallet/wallet_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:terna/models/bump_game/bump_models.dart';
 
 /// Repository managing Arena Bump state, mock user wallet balances, and game history
 class BumpGameRepository {
-  // PLACEHOLDER: Demo user wallet balances
-  double _userTonBalance = 10.0;
-  int _userStarsBalance = 100;
-
-  double get userTonBalance => _userTonBalance;
-  int get userStarsBalance => _userStarsBalance;
+  double get userTonBalance => WalletRepository().tonBalance.value;
+  int get userStarsBalance => WalletRepository().starsBalance.value;
 
   final List<BumpRoundHistory> _historyRecords = [];
   List<BumpRoundHistory> get historyRecords => List.unmodifiable(_historyRecords);
@@ -69,24 +66,19 @@ class BumpGameRepository {
   /// Deducts bet from user balance
   bool debitUserBalance(String currency, double amount) {
     if (currency == 'ton') {
-      if (_userTonBalance < amount) return false;
-      _userTonBalance = double.parse((_userTonBalance - amount).toStringAsFixed(3));
-      return true;
+      return WalletRepository().debitTon(amount, 'Bump Arena Bet');
     } else {
-      final intStars = amount.toInt();
-      if (_userStarsBalance < intStars) return false;
-      _userStarsBalance -= intStars;
-      return true;
+      return WalletRepository().debitStars(amount.toInt(), 'Bump Arena Bet');
     }
   }
 
   /// Credits payout to user balance
   void creditUserPayout(double ton, int stars) {
     if (ton > 0) {
-      _userTonBalance = double.parse((_userTonBalance + ton).toStringAsFixed(3));
+      WalletRepository().creditTon(ton, 'Bump Arena Win');
     }
     if (stars > 0) {
-      _userStarsBalance += stars;
+      WalletRepository().creditStars(stars, 'Bump Arena Win');
     }
   }
 

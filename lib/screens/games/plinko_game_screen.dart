@@ -100,6 +100,18 @@ class _PlinkoGameScreenState extends State<PlinkoGameScreen> with SingleTickerPr
                           // 5. Drop Ball Action Button
                           PlinkoDropButton(viewModel: _viewModel),
 
+                          if (_viewModel.errorMessage != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _viewModel.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFFFF7B7B),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+
                           const SizedBox(height: 24),
                         ],
                       ),
@@ -114,4 +126,3 @@ class _PlinkoGameScreenState extends State<PlinkoGameScreen> with SingleTickerPr
     );
   }
 }
-

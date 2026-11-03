@@ -44,6 +44,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   @override
   void initState() {
     super.initState();
+    _chatService.fetchDirectMessages(widget.recipientId);
     _textController.addListener(() => setState(() {}));
   }
 

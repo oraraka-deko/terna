@@ -7,6 +7,7 @@ import 'package:flutter_telegram_miniapp/flutter_telegram_miniapp.dart';
 import 'package:ton_connect_ui/ton_connect_ui.dart';
 
 import '../../models/wallet/wallet_models.dart';
+import '../../env.dart';
 import '../api/gateway_api_service.dart';
 
 /// Service managing TON Connect wallet lifecycle, TON blockchain deposits,
@@ -22,18 +23,12 @@ class TonWalletService extends ChangeNotifier {
   WalletConnection? _connection;
   WalletConnection? get connection => _connection;
 
-  bool get isConnected => _tonConnect.isConnected && _connection != null;
+  bool get isConnected => tonConnect.isConnected && _connection != null;
   String? get connectedAddress => _connection?.account.address;
 
   /// Publicly reachable manifest URL
   static String resolveManifestUrl() {
-    if (kIsWeb) {
-      final origin = Uri.base.origin;
-      if (origin.isNotEmpty && !origin.contains('localhost')) {
-        return '$origin/tonconnect-manifest.json';
-      }
-    }
-    return '${GatewayApiService.defaultBaseUrl}/tonconnect-manifest.json';
+    return Env.tonConnectManifestUrl;
   }
 
   void init() {
@@ -49,11 +44,9 @@ class TonWalletService extends ChangeNotifier {
 
   /// Open TON Connect UI modal picker (Tonkeeper, Telegram Wallet, MyTonWallet, etc.)
   Future<WalletConnection?> connectWallet(BuildContext context) async {
-    if (!_isInitialized) init();
-
     final conn = await showWalletPicker(
       context: context,
-      ton: _tonConnect,
+      ton: tonConnect,
     );
 
     if (conn != null) {
@@ -81,8 +74,6 @@ class TonWalletService extends ChangeNotifier {
     required double amountTon,
     void Function(String stepMessage)? onStepUpdate,
   }) async {
-    if (!_isInitialized) init();
-
     // 1. Ensure Wallet is connected
     if (!isConnected) {
       onStepUpdate?.call('Please connect your TON wallet first...');
@@ -99,6 +90,9 @@ class TonWalletService extends ChangeNotifier {
     onStepUpdate?.call('Creating deposit session on edge server...');
     final api = GatewayApiService();
     final session = await api.createTonDepositRequest(amountTon);
+    if (session.depositAddress.isEmpty || session.depositId.isEmpty) {
+      throw StateError('The backend did not provide a valid TON deposit session.');
+    }
 
     // 3. Prompt user confirmation in connected TON wallet
     onStepUpdate?.call('Please confirm the payment request in your wallet...');
@@ -118,45 +112,33 @@ class TonWalletService extends ChangeNotifier {
 
     String boc;
     try {
-      boc = await _tonConnect.sendTransaction(txPayload);
+      boc = await tonConnect.sendTransaction(txPayload);
     } catch (e) {
       throw Exception('Payment was rejected or cancelled in your wallet: $e');
     }
 
     // 4. Verify transaction with TonCenter on edge
     onStepUpdate?.call('Transaction broadcasted! Verifying on-chain via TonCenter API...');
-    try {
-      final verifyResult = await api.verifyTonDeposit(
-        depositId: session.depositId,
-        boc: boc,
-        userWalletAddress: userWallet,
-        amountTon: amountTon,
-      );
+    var verifyResult = await api.verifyTonDeposit(
+      depositId: session.depositId,
+      boc: boc,
+      userWalletAddress: userWallet,
+      amountTon: amountTon,
+    );
 
-      if (verifyResult.verified) {
-        onStepUpdate?.call('✓ Deposit confirmed!');
-        return verifyResult;
-      }
-
-      // If pending block confirmation, retry once after a short propagation delay
+    if (!verifyResult.verified) {
       onStepUpdate?.call('Waiting for next block finalization (~3s)...');
       await Future<void>.delayed(const Duration(seconds: 3));
-
-      final retry = await api.verifyTonDeposit(
+      verifyResult = await api.verifyTonDeposit(
         depositId: session.depositId,
         boc: boc,
         userWalletAddress: userWallet,
         amountTon: amountTon,
       );
-      return retry;
-    } catch (err) {
-      // Return verified with BOC as fallback if network was slow
-      return TonVerifyResult(
-        verified: true,
-        txHash: boc.isNotEmpty ? 'boc_${boc.substring(0, 16)}' : null,
-        message: 'Transaction sent to blockchain. Balance will update shortly.',
-      );
     }
+
+    if (verifyResult.verified) onStepUpdate?.call('✓ Deposit confirmed!');
+    return verifyResult;
   }
 
   // --------------------------------------------------------------------------
@@ -172,25 +154,29 @@ class TonWalletService extends ChangeNotifier {
 
     onStepUpdate?.call('Opening native Telegram payment sheet...');
 
-    bool paidSuccess = false;
+    bool paidSuccess;
     try {
       final webApp = WebApp();
       final res = await webApp.openInvoice(url: invoice.invoiceLink);
       paidSuccess = (res == InvoiceResult.paid);
     } catch (err) {
       debugPrint('[TonWalletService] Native openInvoice error: $err');
-      // If running outside Telegram client, verify invoice status
-      paidSuccess = await api.checkStarsInvoiceStatus(invoice.invoiceId);
+      throw StateError('Telegram Stars payments are available only inside the Telegram app: $err');
     }
 
-    if (paidSuccess) {
-      onStepUpdate?.call('Confirming Stars credit with vault...');
-      return await api.confirmStarsPayment(
-        starsAmount: starsAmount,
-        invoiceId: invoice.invoiceId,
-      );
-    } else {
-      throw Exception('Payment was cancelled or failed in Telegram');
+    if (!paidSuccess) {
+      throw StateError('Payment was cancelled or failed in Telegram.');
     }
+
+    onStepUpdate?.call('Waiting for Telegram payment confirmation...');
+    for (var attempt = 0; attempt < 30; attempt++) {
+      final result = await api.checkStarsInvoiceStatus(invoice.invoiceId);
+      if (result.success) return result;
+      await Future<void>.delayed(const Duration(seconds: 1));
+    }
+
+    throw TimeoutException(
+      'Telegram reported payment, but the verified Stars payment has not reached the wallet yet. Check your balance again shortly.',
+    );
   }
 }

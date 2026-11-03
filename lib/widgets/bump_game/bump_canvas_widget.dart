@@ -1,3 +1,4 @@
+import 'package:terna/core/widgets/safe_avatar_image.dart';
 import 'package:flutter/material.dart';
 import 'package:terna/models/bump_game/bump_models.dart';
 import 'bump_painter.dart';
@@ -45,7 +46,7 @@ class _BumpCanvasWidgetState extends State<BumpCanvasWidget> with SingleTickerPr
     for (final b in widget.balls) {
       if (b.avatar.isNotEmpty && !_avatarImageCache.containsKey(b.avatar)) {
         _avatarImageCache[b.avatar] = null;
-        final imageProvider = AssetImage(b.avatar);
+        final imageProvider = safeImageProvider(b.avatar)!;
         final stream = imageProvider.resolve(ImageConfiguration.empty);
         stream.addListener(
           ImageStreamListener((ImageInfo info, bool _) {

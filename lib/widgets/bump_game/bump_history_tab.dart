@@ -1,3 +1,4 @@
+import 'package:terna/core/widgets/safe_avatar_image.dart';
 import 'package:flutter/material.dart';
 import 'package:terna/models/bump_game/bump_models.dart';
 
@@ -57,7 +58,7 @@ class BumpHistoryTab extends StatelessWidget {
                         radius: 20,
                         backgroundColor: winner.color.withValues(alpha: 0.2),
                         backgroundImage:
-                            winner.avatar.isNotEmpty ? AssetImage(winner.avatar) : null,
+                            winner.avatar.isNotEmpty ? safeImageProvider(winner.avatar)! : null,
                         child: winner.avatar.isEmpty
                             ? Text(
                                 winner.displayName.replaceAll('@', '').isNotEmpty

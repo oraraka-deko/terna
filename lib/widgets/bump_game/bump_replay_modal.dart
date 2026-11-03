@@ -1,3 +1,4 @@
+import 'package:terna/core/widgets/safe_avatar_image.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:terna/models/bump_game/bump_models.dart';
@@ -41,7 +42,7 @@ class _BumpReplayModalState extends State<BumpReplayModal> {
     for (final b in widget.record.participants) {
       if (b.avatar.isNotEmpty && !_avatarImageCache.containsKey(b.avatar)) {
         _avatarImageCache[b.avatar] = null;
-        final imageProvider = AssetImage(b.avatar);
+        final imageProvider = safeImageProvider(b.avatar)!;
         final stream = imageProvider.resolve(ImageConfiguration.empty);
         stream.addListener(
           ImageStreamListener((ImageInfo info, bool _) {

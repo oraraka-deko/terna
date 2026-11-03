@@ -1,20 +1,31 @@
+import 'dart:convert';
 import 'dart:math' as math;
+import 'package:crypto/crypto.dart';
 import 'package:terna/models/territory_game/territory_models.dart';
 import 'package:terna/services/territory_game/territory_slicing_service.dart';
 
 class TerritoryPhysicsService {
   static double _hypot(double a, double b) => math.sqrt(a * a + b * b);
 
+  static String deriveRoundSeed(String serverSeed, int roundId) {
+    return Hmac(sha256, utf8.encode(serverSeed))
+        .convert(utf8.encode('territory_round_$roundId'))
+        .toString();
+  }
+
   /// Pure 2D Air Hockey Native Physics Engine
   static AirHockeyTrajectory simulateAirHockeyFlight({
-    required dynamic seed,
-    required String winnerPlayerId,
+    required String seed,
     required List<WatertightPolygon> territories,
     double W = 460.0,
     double H = 460.0,
     double durationMs = 15500.0,
     PhysicsConfig config = const PhysicsConfig(),
   }) {
+    if (territories.isEmpty) {
+      throw ArgumentError.value(territories, 'territories', 'At least one territory is required.');
+    }
+
     final puckRadius = math.max(6.0, math.min(26.0, config.ballRadius));
     const bumperInset = 5.0;
     const cornerR = 38.0;
@@ -27,28 +38,39 @@ class TerritoryPhysicsService {
     final cornerLimit = cornerR - puckRadius - bumperInset;
 
     final restitution = math.max(0.88, math.min(0.995, config.wallElasticityRestitution));
-    final subTickRate = math.max(60, math.min(240, config.subTickRate));
-    final dt = 1.0 / subTickRate;
+    const subTickRate = 60;
+    const dt = 1.0 / subTickRate;
     final stopThreshold = math.max(1.5, math.min(10.0, config.minVelocityStopThreshold));
 
-    // Pseudorandom generator based on round seed
-    int numSeed;
-    if (seed is int) {
-      numSeed = seed.abs();
-    } else {
-      numSeed = seed.toString().codeUnits.fold<int>(1, (acc, c) => (acc * 31 + c) & 0xffffff);
+    final seedBytes = sha256.convert(utf8.encode(seed.toString())).bytes;
+    var randomState = 0;
+    for (var i = 0; i < 4; i++) {
+      randomState = (randomState << 8) | seedBytes[i];
     }
-    double pseudo = ((numSeed * 9301 + 49297) % 233280).toDouble();
-    double rnd() {
-      pseudo = (pseudo * 9301 + 49297) % 233280;
-      return pseudo / 233280.0;
+    randomState &= 0xffffffff;
+    if (randomState == 0) randomState = 0x6d2b79f5;
+
+    int nextUint32() {
+      var value = randomState;
+      value ^= (value << 13) & 0xffffffff;
+      value ^= value >> 17;
+      value ^= (value << 5) & 0xffffffff;
+      randomState = value & 0xffffffff;
+      return randomState;
     }
 
-    final targetPoly = territories.firstWhere(
-      (t) => t.playerId == winnerPlayerId,
-      orElse: () => territories.isNotEmpty ? territories.first : throw Exception('No territories'),
-    );
+    double rnd() {
+      return nextUint32() / 0x100000000;
+    }
+
     final maxSteps = ((durationMs / 1000.0) / dt).floor();
+    final impulseMin = math.min(config.initialImpulseMin, config.initialImpulseMax);
+    final impulseSpan = math.max(50.0, (config.initialImpulseMax - config.initialImpulseMin).abs());
+    final startAngle = rnd() * math.pi * 2;
+    final initialSpeed = impulseMin + rnd() * impulseSpan;
+    final dampingFactor = 0.993 + rnd() * 0.003;
+    final surfaceMu = 4.0 + rnd() * 3.0;
+    double quantize(double value) => (value * 100).round() / 100.0;
 
     final corners = [
       (cx: cornerR, cy: cornerR),
@@ -57,252 +79,154 @@ class TerritoryPhysicsService {
       (cx: cornerR, cy: H - cornerR),
     ];
 
-    ({
-      List<PhysicsPoint> points,
-      List<WallHitEvent> wallHits,
-      double finalX,
-      double finalY,
-      int wallHitsCount,
-      double stopTime,
-    }) simulateCandidate(
-      double startAngle,
-      double initialSpeed,
-      double dampingFactor,
-      double surfaceMu,
-    ) {
-      double x = W / 2;
-      double y = H / 2;
-      double vx = math.cos(startAngle) * initialSpeed;
-      double vy = math.sin(startAngle) * initialSpeed;
+    var x = quantize(W / 2);
+    var y = quantize(H / 2);
+    var vx = quantize(math.cos(startAngle) * initialSpeed);
+    var vy = quantize(math.sin(startAngle) * initialSpeed);
+    final points = <PhysicsPoint>[
+      PhysicsPoint(x: x, y: y, vx: vx, vy: vy, timeMs: 0),
+    ];
+    final wallHitEvents = <WallHitEvent>[];
+    var wallHitsCount = 0;
+    var stopTime = durationMs;
+    var lastBounceTime = -100.0;
 
-      final List<PhysicsPoint> points = [];
-      final List<WallHitEvent> wallHitEvents = [];
-      points.add(PhysicsPoint(x: x, y: y, vx: vx, vy: vy, timeMs: 0));
+    for (var step = 1; step <= maxSteps; step++) {
+      final time = step * 1000.0 / subTickRate;
 
-      int wallHits = 0;
-      double time = 0.0;
-      double stopTime = durationMs;
-      double lastBounceTime = -100.0;
+      vx = quantize(vx * dampingFactor);
+      vy = quantize(vy * dampingFactor + gravity * dt * 30.0);
 
-      for (int step = 1; step <= maxSteps; step++) {
-        time += dt * 1000.0;
+      final currentSpeed = _hypot(vx, vy);
+      if (currentSpeed > 0) {
+        final coulombDecel = surfaceMu * dt;
+        final newSpeed = math.max(0.0, currentSpeed - coulombDecel);
+        final factor = newSpeed / currentSpeed;
+        vx = quantize(vx * factor);
+        vy = quantize(vy * factor);
+      }
 
-        // 1. Continuous air-cushion exponential damping & optional subtle gravity
-        final airDamp = math.pow(dampingFactor, dt * 60.0).toDouble();
-        vx *= airDamp;
-        vy = vy * airDamp + gravity * dt * 30.0;
+      x = quantize(x + vx * dt);
+      y = quantize(y + vy * dt);
 
-        // 2. Subtle Coulomb table surface friction
-        final currentSpeed = _hypot(vx, vy);
-        if (currentSpeed > 0) {
-          final coulombDecel = surfaceMu * dt;
-          final newSpeed = math.max(0.0, currentSpeed - coulombDecel);
-          final factor = newSpeed / currentSpeed;
-          vx *= factor;
-          vy *= factor;
-        }
+      var isHit = false;
+      var hitIntensity = 0.0;
 
-        // 3. Position integration
-        x += vx * dt;
-        y += vy * dt;
+      if (x < minX) {
+        final penetration = minX - x;
+        x = quantize(minX + penetration * restitution);
+        vx = quantize(-vx * restitution);
+        isHit = true;
+        hitIntensity = math.min(1.0, vx.abs() / 360.0);
+      } else if (x > maxX) {
+        final penetration = x - maxX;
+        x = quantize(maxX - penetration * restitution);
+        vx = quantize(-vx * restitution);
+        isHit = true;
+        hitIntensity = math.min(1.0, vx.abs() / 360.0);
+      }
 
-        bool isHit = false;
-        double hitIntensity = 0.0;
+      if (y < minY) {
+        final penetration = minY - y;
+        y = quantize(minY + penetration * restitution);
+        vy = quantize(-vy * restitution);
+        isHit = true;
+        hitIntensity = math.min(1.0, vy.abs() / 360.0);
+      } else if (y > maxY) {
+        final penetration = y - maxY;
+        y = quantize(maxY - penetration * restitution);
+        vy = quantize(-vy * restitution);
+        isHit = true;
+        hitIntensity = math.min(1.0, vy.abs() / 360.0);
+      }
 
-        // Outer rail cushions
-        if (x < minX) {
-          final pen = minX - x;
-          x = minX + pen * restitution;
-          vx = -vx * restitution;
-          isHit = true;
-          hitIntensity = math.min(1.0, vx.abs() / 360.0);
-        } else if (x > maxX) {
-          final pen = x - maxX;
-          x = maxX - pen * restitution;
-          vx = -vx * restitution;
-          isHit = true;
-          hitIntensity = math.min(1.0, vx.abs() / 360.0);
-        }
-
-        if (y < minY) {
-          final pen = minY - y;
-          y = minY + pen * restitution;
-          vy = -vy * restitution;
-          isHit = true;
-          hitIntensity = math.min(1.0, vy.abs() / 360.0);
-        } else if (y > maxY) {
-          final pen = y - maxY;
-          y = maxY - pen * restitution;
-          vy = -vy * restitution;
-          isHit = true;
-          hitIntensity = math.min(1.0, vy.abs() / 360.0);
-        }
-
-        // Rounded Corner reflections
-        for (final c in corners) {
-          final inQuadX = (c.cx == cornerR) ? (x < c.cx) : (x > c.cx);
-          final inQuadY = (c.cy == cornerR) ? (y < c.cy) : (y > c.cy);
-          if (inQuadX && inQuadY) {
-            final dx = x - c.cx;
-            final dy = y - c.cy;
-            final dist = _hypot(dx, dy);
-            if (dist > cornerLimit && dist > 0.001) {
-              final nx = dx / dist;
-              final ny = dy / dist;
-              final over = dist - cornerLimit;
-              x = c.cx + nx * (cornerLimit - over * 0.2);
-              y = c.cy + ny * (cornerLimit - over * 0.2);
-              final dot = vx * nx + vy * ny;
-              if (dot > 0) {
-                vx = (vx - 2 * dot * nx) * restitution;
-                vy = (vy - 2 * dot * ny) * restitution;
-                isHit = true;
-                hitIntensity = math.min(1.0, _hypot(vx, vy) / 360.0);
-              }
+      for (final corner in corners) {
+        final inQuadX = corner.cx == cornerR ? x < corner.cx : x > corner.cx;
+        final inQuadY = corner.cy == cornerR ? y < corner.cy : y > corner.cy;
+        if (inQuadX && inQuadY) {
+          final dx = x - corner.cx;
+          final dy = y - corner.cy;
+          final distance = _hypot(dx, dy);
+          if (distance > cornerLimit && distance > 0.001) {
+            final nx = dx / distance;
+            final ny = dy / distance;
+            final over = distance - cornerLimit;
+            x = quantize(corner.cx + nx * (cornerLimit - over * 0.2));
+            y = quantize(corner.cy + ny * (cornerLimit - over * 0.2));
+            final dot = vx * nx + vy * ny;
+            if (dot > 0) {
+              vx = quantize((vx - 2 * dot * nx) * restitution);
+              vy = quantize((vy - 2 * dot * ny) * restitution);
+              isHit = true;
+              hitIntensity = math.min(1.0, _hypot(vx, vy) / 360.0);
             }
           }
         }
+      }
 
-        if (isHit) {
-          wallHits++;
-          if (time - lastBounceTime > 60.0) {
-            lastBounceTime = time;
-            wallHitEvents.add(WallHitEvent(
-              timeMs: time.roundToDouble(),
-              progress: time / durationMs,
-              x: (x * 10).round() / 10.0,
-              y: (y * 10).round() / 10.0,
-              intensity: math.max(0.35, hitIntensity),
-            ));
-          }
-        }
-
-        final postSpeed = _hypot(vx, vy);
-        final isStopped = postSpeed <= stopThreshold && step > 80;
-
-        points.add(PhysicsPoint(
-          x: (x * 10).round() / 10.0,
-          y: (y * 10).round() / 10.0,
-          vx: vx,
-          vy: vy,
-          isWallHit: isHit,
-          wallIntensity: hitIntensity,
-          timeMs: time,
-          isStopped: isStopped,
-        ));
-
-        if (isStopped) {
-          stopTime = time;
-          while (step < maxSteps) {
-            step++;
-            time += dt * 1000.0;
-            points.add(PhysicsPoint(
-              x: (x * 10).round() / 10.0,
-              y: (y * 10).round() / 10.0,
-              vx: 0,
-              vy: 0,
-              timeMs: time,
-              isStopped: true,
-            ));
-          }
-          break;
+      if (isHit) {
+        wallHitsCount++;
+        if (time - lastBounceTime > 60.0) {
+          lastBounceTime = time;
+          wallHitEvents.add(WallHitEvent(
+            timeMs: time.roundToDouble(),
+            progress: time / durationMs,
+            x: x,
+            y: y,
+            intensity: math.max(0.35, hitIntensity),
+          ));
         }
       }
 
-      final finalPt = points.last;
-      return (
-        points: points,
-        wallHits: wallHitEvents,
-        finalX: finalPt.x,
-        finalY: finalPt.y,
-        wallHitsCount: wallHits,
-        stopTime: stopTime,
-      );
-    }
+      final isStopped = _hypot(vx, vy) <= stopThreshold && step > 80;
+      points.add(PhysicsPoint(
+        x: x,
+        y: y,
+        vx: vx,
+        vy: vy,
+        isWallHit: isHit,
+        wallIntensity: hitIntensity,
+        timeMs: time,
+        isStopped: isStopped,
+      ));
 
-    final impulseMin = math.min(config.initialImpulseMin, config.initialImpulseMax);
-    final impulseSpan = math.max(50.0, (config.initialImpulseMax - config.initialImpulseMin).abs());
-
-    List<PhysicsPoint> bestTrajectory = [];
-    List<WallHitEvent> bestWallHits = [];
-    double bestLaunchAngle = 0.0;
-    double bestSpeed = config.initialImpulseMin;
-    double bestStopTime = 0.0;
-    bool foundValid = false;
-
-    // Search Pass 1: Targeted candidate generation
-    const maxAttempts = 600;
-    for (int attempt = 0; attempt < maxAttempts; attempt++) {
-      final startAngle = rnd() * math.pi * 2;
-      final initialSpeed = impulseMin + rnd() * impulseSpan;
-      final dampingFactor = 0.993 + rnd() * 0.003;
-      final surfaceMu = 4.0 + rnd() * 3.0;
-
-      final res = simulateCandidate(startAngle, initialSpeed, dampingFactor, surfaceMu);
-      final landedPoly = TerritorySlicingService.findPlayerAtPoint(res.finalX, res.finalY, territories);
-
-      if (landedPoly != null &&
-          landedPoly.playerId == winnerPlayerId &&
-          res.wallHitsCount >= 8 &&
-          res.stopTime >= 8000.0) {
-        bestTrajectory = res.points;
-        bestWallHits = res.wallHits;
-        bestLaunchAngle = startAngle;
-        bestSpeed = initialSpeed;
-        bestStopTime = res.stopTime;
-        foundValid = true;
+      if (isStopped) {
+        stopTime = time;
+        for (var remainingStep = step + 1; remainingStep <= maxSteps; remainingStep++) {
+          points.add(PhysicsPoint(
+            x: x,
+            y: y,
+            vx: 0,
+            vy: 0,
+            timeMs: remainingStep * 1000.0 / subTickRate,
+            isStopped: true,
+          ));
+        }
         break;
       }
     }
 
-    // Search Pass 2: Relax bounds if needed
-    if (!foundValid) {
-      for (int attempt = 0; attempt < 400; attempt++) {
-        final startAngle = rnd() * math.pi * 2;
-        final initialSpeed = impulseMin + rnd() * impulseSpan;
-        const dampingFactor = 0.994;
-        const surfaceMu = 5.0;
-
-        final res = simulateCandidate(startAngle, initialSpeed, dampingFactor, surfaceMu);
-        final landedPoly = TerritorySlicingService.findPlayerAtPoint(res.finalX, res.finalY, territories);
-
-        if (landedPoly != null && landedPoly.playerId == winnerPlayerId) {
-          bestTrajectory = res.points;
-          bestWallHits = res.wallHits;
-          bestLaunchAngle = startAngle;
-          bestSpeed = initialSpeed;
-          bestStopTime = res.stopTime;
-          foundValid = true;
-          break;
-        }
-      }
+    final finalPt = points.last;
+    final landedTerritory = TerritorySlicingService.findPlayerAtPoint(
+      finalPt.x,
+      finalPt.y,
+      territories,
+    );
+    if (landedTerritory == null) {
+      throw StateError('The simulated puck stopped outside all territories.');
     }
-
-    // Fallback: If still not found, construct direct glide to target innerX, innerY
-    if (!foundValid || bestTrajectory.isEmpty) {
-      final directAngle = math.atan2(targetPoly.innerY - H / 2, targetPoly.innerX - W / 2);
-      final directSpeed = impulseMin * 0.7;
-      final res = simulateCandidate(directAngle, directSpeed, 0.991, 6.0);
-      bestTrajectory = res.points;
-      bestWallHits = res.wallHits;
-      bestLaunchAngle = directAngle;
-      bestSpeed = directSpeed;
-      bestStopTime = res.stopTime;
-    }
-
-    final finalPt = bestTrajectory.isNotEmpty ? bestTrajectory.last : PhysicsPoint(x: targetPoly.innerX, y: targetPoly.innerY, vx: 0, vy: 0, timeMs: durationMs);
 
     return AirHockeyTrajectory(
-      points: bestTrajectory,
-      wallHits: bestWallHits,
+      points: points,
+      wallHits: wallHitEvents,
       finalX: finalPt.x,
       finalY: finalPt.y,
-      winnerPlayerId: winnerPlayerId,
+      winnerPlayerId: landedTerritory.playerId,
       totalDurationMs: durationMs,
-      wallHitsCount: bestWallHits.length,
-      launchAngle: bestLaunchAngle,
-      initialSpeed: bestSpeed,
-      stopTimeMs: bestStopTime > 0 ? bestStopTime : durationMs * 0.75,
+      wallHitsCount: wallHitsCount,
+      launchAngle: startAngle,
+      initialSpeed: initialSpeed,
+      stopTimeMs: stopTime,
     );
   }
 

@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:terna/main.dart';
 import 'package:terna/models/roulette/odds.dart';
@@ -79,14 +78,6 @@ class _RouletteGameScreenState extends State<RouletteGameScreen> {
   }
 }
  
-class RouletteRNG {
-  static final Random _secureRandom = Random.secure();
-
-  // Uniform 1/38 chance per pocket
-  static int spin(int pocketCount) {
-    return _secureRandom.nextInt(pocketCount);
-  }
-}
 class AmericanRouletteGame extends StatefulWidget {
   final RouletteGameState gameState;
 
@@ -104,6 +95,7 @@ class _AmericanRouletteGameState extends State<AmericanRouletteGame>
   double _currentWheelAngle = 0.0;
   double _currentBallAngle = 0.0;
   double _ballRadiusFactor = 0.0; // 0.0 (hidden), 0.85 (track), 0.45 (pocket)
+  VoidCallback? _spinListener;
 
   String? _winningPocketLabel;
   bool _showResultOverlay = false;
@@ -253,7 +245,7 @@ class _AmericanRouletteGameState extends State<AmericanRouletteGame>
     }
   }
 
-  void _startSpin() {
+  Future<void> _startSpin() async {
     if (!widget.gameState.canSpin) return;
 
     setState(() {
@@ -263,57 +255,70 @@ class _AmericanRouletteGameState extends State<AmericanRouletteGame>
 
     widget.gameState.setSpinning(true);
     try {
-      soloud.play(spins);
-    } catch (_) {}
-    // Pick random winning pocket index from American 38 pockets
-    final winningIndex = RouletteRNG.spin(americanWheelPockets.length);
-    final targetPocket = americanWheelPockets[winningIndex];
+      final serverResult = await widget.gameState.requestSpin();
+      final winningPocket = serverResult['winningPocket'] as String;
+      final winningIndex =
+          americanWheelPockets.indexWhere((pocket) => pocket.label == winningPocket);
+      if (winningIndex < 0) {
+        throw const FormatException('The backend returned an unknown roulette pocket.');
+      }
+      final targetPocket = americanWheelPockets[winningIndex];
+      final serverPayout = (serverResult['payout'] as num).toInt();
+      try {
+        soloud.play(spins);
+      } catch (_) {}
 
-    const totalPockets = 38;
-    final sliceAngle = (2 * math.pi) / totalPockets;
+      const totalPockets = 38;
+      final sliceAngle = (2 * math.pi) / totalPockets;
 
-    // Calculate exact wheel rotation target so winningIndex lands at top pointer (-pi/2)
-    final baseTargetAngle = -winningIndex * sliceAngle;
-    double targetWheelAngle = baseTargetAngle;
-    while (targetWheelAngle < _currentWheelAngle + (6 * 2 * math.pi)) {
-      targetWheelAngle += 2 * math.pi;
-    }
+      // Calculate exact wheel rotation target so the server result lands at the pointer.
+      final baseTargetAngle = -winningIndex * sliceAngle;
+      double targetWheelAngle = baseTargetAngle;
+      while (targetWheelAngle < _currentWheelAngle + (6 * 2 * math.pi)) {
+        targetWheelAngle += 2 * math.pi;
+      }
 
-    // Ball orbits in reverse and lands at 12 o'clock pointer (-pi/2)
-    final startBallAngle = _currentBallAngle;
-    double targetBallAngle = -math.pi / 2;
-    while (targetBallAngle > startBallAngle - (9 * 2 * math.pi)) {
-      targetBallAngle -= 2 * math.pi;
-    }
+      // Ball orbits in reverse and lands at 12 o'clock pointer.
+      final startBallAngle = _currentBallAngle;
+      double targetBallAngle = -math.pi / 2;
+      while (targetBallAngle > startBallAngle - (9 * 2 * math.pi)) {
+        targetBallAngle -= 2 * math.pi;
+      }
 
-    final startWheel = _currentWheelAngle;
+      final startWheel = _currentWheelAngle;
 
-    _spinController.reset();
+      _spinController.reset();
 
-    _spinController.addListener(() {
-      final progress = _spinController.value;
-      final curvedWheel = Curves.decelerate.transform(progress);
-      final curvedBall = const Cubic(0.1, 0.9, 0.2, 1.0).transform(progress);
+      if (_spinListener != null) {
+      _spinController.removeListener(_spinListener!);
+      }
+      _spinListener = () {
+        final progress = _spinController.value;
+        final curvedWheel = Curves.decelerate.transform(progress);
+        final curvedBall = const Cubic(0.1, 0.9, 0.2, 1.0).transform(progress);
 
-      setState(() {
-        _currentWheelAngle =
-            startWheel + (targetWheelAngle - startWheel) * curvedWheel;
-        _currentBallAngle =
-            startBallAngle + (targetBallAngle - startBallAngle) * curvedBall;
+        setState(() {
+          _currentWheelAngle =
+              startWheel + (targetWheelAngle - startWheel) * curvedWheel;
+          _currentBallAngle =
+              startBallAngle + (targetBallAngle - startBallAngle) * curvedBall;
 
-        // Ball spiral down physics: start at outer rim track (0.85), spiral down to pocket track (0.45)
-        if (progress < 0.70) {
-          _ballRadiusFactor = 0.85;
-        } else {
-          final dropProgress = (progress - 0.70) / 0.30;
-          _ballRadiusFactor =
-              0.85 - (0.40 * Curves.easeOutBack.transform(dropProgress));
-        }
-      });
-    });
+          if (progress < 0.70) {
+            _ballRadiusFactor = 0.85;
+          } else {
+            final dropProgress = (progress - 0.70) / 0.30;
+            _ballRadiusFactor =
+                0.85 - (0.40 * Curves.easeOutBack.transform(dropProgress));
+          }
+        });
+      };
+      _spinController.addListener(_spinListener!);
 
-    _spinController.forward().then((_) {
-      final result = widget.gameState.evaluateRound(targetPocket.label);
+      await _spinController.forward();
+      final result = widget.gameState.evaluateRound(
+        targetPocket.label,
+        serverPayout: serverPayout,
+      );
       setState(() {
         _winningPocketLabel = targetPocket.label;
         _lastSpinResult = result;
@@ -321,7 +326,14 @@ class _AmericanRouletteGameState extends State<AmericanRouletteGame>
       });
 
       _pulseController.repeat(reverse: true);
-    });
+    } catch (error) {
+      widget.gameState.cancelSpin(error.toString());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Spin failed: $error')),
+        );
+      }
+    }
   }
 
   void _showGameOverDialog() {
@@ -354,13 +366,13 @@ class _AmericanRouletteGameState extends State<AmericanRouletteGame>
               ],
             ),
             content: const Text(
-              'You have run out of demo bankroll cash! Would you like to reload \$1,000 demo chips and try again?',
+              'Your Stars balance is empty. Add Stars in Wallet before placing another bet.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white70, fontSize: 15),
             ),
             actionsAlignment: MainAxisAlignment.center,
             actions: [
-              ElevatedButton.icon(
+              ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFFD700),
                   foregroundColor: Colors.black,
@@ -372,14 +384,12 @@ class _AmericanRouletteGameState extends State<AmericanRouletteGame>
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                icon: const Icon(Icons.refresh, color: Colors.black),
-                label: const Text(
-                  'REFILL \$1,000 DEMO CASH',
+                child: const Text(
+                  'CLOSE',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 onPressed: () {
                   Navigator.of(ctx).pop();
-                  widget.gameState.refillDemoMoney();
                 },
               ),
             ],
@@ -654,7 +664,7 @@ class _AmericanRouletteGameState extends State<AmericanRouletteGame>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Demo Cash Balance
+                    // Shared wallet balances
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -677,10 +687,19 @@ class _AmericanRouletteGameState extends State<AmericanRouletteGame>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'BANK: \$${game.balance}',
+                            'BANK: ${game.balance} ⭐',
                             style: const TextStyle(
                               color: Color(0xFFFFD700),
                               fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${game.tonBalance.toStringAsFixed(3)} TON',
+                            style: const TextStyle(
+                              color: Color(0xFF61A9FF),
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

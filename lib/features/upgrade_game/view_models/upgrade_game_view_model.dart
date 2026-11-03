@@ -7,6 +7,8 @@ import 'package:terna/models/upgrade_game/upgrade_game_models.dart';
 import 'package:terna/services/haptic.dart';
 import 'package:terna/services/upgrade_game/upgrade_gifts_repository.dart';
 import 'package:terna/services/upgrade_game/wheel_audio_service.dart';
+import 'package:terna/services/wallet/wallet_repository.dart';
+import 'package:terna/services/inventory/inventory_repository.dart';
 
 class UpgradeGameViewModel extends ChangeNotifier {
   final UpgradeGiftsRepository repository;
@@ -23,10 +25,10 @@ class UpgradeGameViewModel extends ChangeNotifier {
   bool isLoading = true;
 
   UpgradeUserInventory inventory = const UpgradeUserInventory(
-    tonBalance: 10.0,
-    starsBalance: 100,
+    tonBalance: 0,
+    starsBalance: 0,
     gifts: [],
-    isPlaceholder: true,
+    isPlaceholder: false,
   );
 
   List<TelegramGift> catalogGifts = [];
@@ -403,10 +405,12 @@ class UpgradeGameViewModel extends ChangeNotifier {
           0,
           selectedTargetGift!.copyWith(
             instanceId: 'won_${DateTime.now().millisecondsSinceEpoch}_${selectedTargetGift!.giftId}',
-            isPlaceholder: true, // FLAG PLACEHOLDER
+            isPlaceholder: false,
           ),
         );
       }
+      WalletRepository().refreshBalances();
+      InventoryRepository().fetchInventory();
 
       inventory = inventory.copyWith(
         tonBalance: max(0.0, inventory.tonBalance - consumedTon),

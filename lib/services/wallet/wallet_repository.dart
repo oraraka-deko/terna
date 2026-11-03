@@ -13,67 +13,64 @@ class WalletRepository {
   static final WalletRepository _instance = WalletRepository._internal();
   factory WalletRepository() => _instance;
   WalletRepository._internal() {
-    _initDefaultTransactions();
+    refreshBalances();
   }
 
-  final ValueNotifier<double> tonBalance = ValueNotifier<double>(12.50);
-  final ValueNotifier<int> starsBalance = ValueNotifier<int>(450);
+  final ValueNotifier<double> tonBalance = ValueNotifier<double>(0.0);
+  final ValueNotifier<int> starsBalance = ValueNotifier<int>(0);
+  final ValueNotifier<String> depositWalletAddress = ValueNotifier<String>('');
+  final ValueNotifier<String> username = ValueNotifier<String>('@terna_player');
+  final ValueNotifier<String> avatar = ValueNotifier<String>('');
   final ValueNotifier<List<WalletTransaction>> transactions = ValueNotifier<List<WalletTransaction>>([]);
   final ValueNotifier<bool> isLoading = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> isOffline = ValueNotifier<bool>(false);
 
-  void _initDefaultTransactions() {
-    final now = DateTime.now();
-    transactions.value = [
-      WalletTransaction(
-        id: 'tx_seed_1',
-        type: 'DEPOSIT',
-        currency: 'TON',
-        amount: 10.0,
-        status: 'CONFIRMED',
-        timestamp: now.subtract(const Duration(hours: 3)),
-        description: 'TON Connect Deposit',
-        txHash: '0x8f2a...e9b1',
-      ),
-      WalletTransaction(
-        id: 'tx_seed_2',
-        type: 'DEPOSIT',
-        currency: 'STARS',
-        amount: 500,
-        status: 'CONFIRMED',
-        timestamp: now.subtract(const Duration(hours: 1)),
-        description: 'Telegram Stars In-App Invoice',
-      ),
-      WalletTransaction(
-        id: 'tx_seed_3',
-        type: 'PURCHASE',
-        currency: 'STARS',
-        amount: -50,
-        status: 'CONFIRMED',
-        timestamp: now.subtract(const Duration(minutes: 24)),
-        description: 'Gift Purchase: Heart Box',
-      ),
-      WalletTransaction(
-        id: 'tx_seed_4',
-        type: 'GAME_WIN',
-        currency: 'TON',
-        amount: 2.50,
-        status: 'CONFIRMED',
-        timestamp: now.subtract(const Duration(minutes: 8)),
-        description: 'American Roulette Straight-Up Win',
-      ),
-    ];
-  }
-
-  /// Sync balances from edge worker gateway
+  /// Sync balances and transactions from backend
   Future<void> refreshBalances() async {
     try {
       isLoading.value = true;
       final api = GatewayApiService();
-      final state = await api.getUserState();
-      tonBalance.value = state.tonBalance;
-      starsBalance.value = state.starsBalance;
-    } catch (_) {
-      // Fallback: keep optimistic state
+
+      // 1. Fetch live wallet info
+      final info = await api.getWalletInfo();
+      if (info.isNotEmpty) {
+        tonBalance.value = (info['tonBalance'] as num?)?.toDouble() ?? 0.0;
+        starsBalance.value = (info['starsBalance'] as num?)?.toInt() ?? 0;
+        depositWalletAddress.value = info['depositWalletAddress']?.toString() ?? '';
+        if (info['username'] != null) username.value = info['username'].toString();
+        if (info['avatar'] != null) avatar.value = info['avatar'].toString();
+        isOffline.value = false;
+      }
+
+      // 2. Fetch live transactions
+      final rawTxs = await api.getUserTransactions(limit: 50);
+      if (rawTxs.isNotEmpty) {
+        final parsed = <WalletTransaction>[];
+        for (final item in rawTxs) {
+          if (item is Map<String, dynamic>) {
+            final ts = item['createdAt'] != null
+                ? DateTime.fromMillisecondsSinceEpoch((item['createdAt'] as num).toInt())
+                : DateTime.now();
+            parsed.add(
+              WalletTransaction(
+                id: item['id']?.toString() ?? 'tx_${item['createdAt']}',
+                type: item['type']?.toString() ?? 'TRANSACTION',
+                currency: (item['currency']?.toString() ?? 'TON').toUpperCase(),
+                amount: (item['amount'] as num?)?.toDouble() ?? 0.0,
+                status: item['status']?.toString() ?? 'COMPLETED',
+                timestamp: ts,
+                description: item['comment']?.toString() ?? item['description']?.toString() ?? '',
+                txHash: item['txHash']?.toString(),
+              ),
+            );
+          }
+        }
+        transactions.value = parsed;
+      }
+    } catch (e) {
+      // Graceful offline fallback: retain last known in-memory state
+      isOffline.value = true;
+      debugPrint('[WalletRepository] refreshBalances offline fallback: $e');
     } finally {
       isLoading.value = false;
     }
@@ -158,19 +155,12 @@ class WalletRepository {
         onStepUpdate: onStepUpdate,
       );
       if (res.verified) {
-        creditTon(amountTon, 'TON Connect Deposit', txHash: res.txHash);
+        await refreshBalances();
       }
       return res;
     } catch (e) {
-      // If running locally or on test environment without toncenter secret
-      onStepUpdate?.call('Simulating local verified deposit...');
-      await Future.delayed(const Duration(milliseconds: 900));
-      creditTon(amountTon, 'TON Deposit (Local Verified)', txHash: '0xlocal_${Random().nextInt(999999)}');
-      return TonVerifyResult(
-        verified: true,
-        tonBalance: tonBalance.value,
-        message: 'Deposit confirmed successfully',
-      );
+      onStepUpdate?.call('TON deposit verification failed.');
+      rethrow;
     }
   }
 
@@ -187,41 +177,60 @@ class WalletRepository {
         onStepUpdate: onStepUpdate,
       );
       if (res.success) {
-        creditStars(starsAmount, 'Telegram Stars In-App Invoice');
+        await refreshBalances();
         return true;
       }
       return false;
     } catch (e) {
-      onStepUpdate?.call('Simulating Stars payment credit...');
-      await Future.delayed(const Duration(milliseconds: 800));
-      creditStars(starsAmount, 'Telegram Stars Credit');
-      return true;
+      onStepUpdate?.call('Telegram Stars payment was not verified.');
+      rethrow;
     }
   }
 
   /// Withdraw TON to specified external address
   Future<bool> withdrawTon(String destinationAddress, double amount) async {
     if (tonBalance.value < amount) return false;
-    tonBalance.value = double.parse((tonBalance.value - amount).toStringAsFixed(4));
-    _record(
-      type: 'WITHDRAWAL',
-      currency: 'TON',
-      amount: -amount,
-      description: 'Withdrawal to ${destinationAddress.substring(0, min(8, destinationAddress.length))}...',
-    );
-    return true;
+    try {
+      final api = GatewayApiService();
+      final res = await api.withdrawTon(destinationAddress, amount);
+      if (res['success'] == true) {
+        tonBalance.value = double.parse((tonBalance.value - amount).toStringAsFixed(4));
+        _record(
+          type: 'WITHDRAWAL',
+          currency: 'TON',
+          amount: -amount,
+          description: 'Withdrawal to ${destinationAddress.substring(0, min(8, destinationAddress.length))}...',
+          txHash: res['txHash']?.toString(),
+        );
+        await refreshBalances();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[WalletRepository] withdrawTon error: $e');
+    }
+    return false;
   }
 
   /// Request Stars withdrawal / voucher
   Future<bool> requestStarsWithdrawal(int amount) async {
     if (starsBalance.value < amount) return false;
-    starsBalance.value -= amount;
-    _record(
-      type: 'WITHDRAWAL',
-      currency: 'STARS',
-      amount: -amount.toDouble(),
-      description: 'Telegram Stars Withdrawal Request',
-    );
-    return true;
+    try {
+      final api = GatewayApiService();
+      final res = await api.requestStarsWithdrawal(amount);
+      if (res['success'] == true) {
+        starsBalance.value -= amount;
+        _record(
+          type: 'WITHDRAWAL',
+          currency: 'STARS',
+          amount: -amount.toDouble(),
+          description: 'Telegram Stars Withdrawal Request',
+        );
+        await refreshBalances();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('[WalletRepository] requestStarsWithdrawal error: $e');
+    }
+    return false;
   }
 }

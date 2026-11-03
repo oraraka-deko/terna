@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terna/main.dart';
+import '../../services/api/gateway_api_service.dart';
+import '../../services/wallet/wallet_repository.dart';
 
 enum BoardSize {
   threeByThree(3, 9, 'assets/mines_bomb_game/just_board/slice_01.png'),
@@ -28,8 +30,15 @@ class MinesArenaGameScreen extends StatefulWidget {
 class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
     with TickerProviderStateMixin {
   // Game Setup & Balance
-  double _tonBalance = 10.00;
-  int _starsBalance = 500;
+  double get _tonBalance => WalletRepository().tonBalance.value;
+  int get _starsBalance => WalletRepository().starsBalance.value;
+  String? _currentRoundId;
+  bool _isSubmitting = false;
+  double? _serverNextMultiplier;
+
+  void _onBalanceChanged() {
+    if (mounted) setState(() {});
+  }
   BetCurrency _selectedCurrency = BetCurrency.ton;
   double _betAmountTon = 0.1;
   int _betAmountStars = 10;
@@ -39,7 +48,7 @@ class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
 
   // Active Match State
   GamePhase _phase = GamePhase.idle;
-  Set<int> _mineIndices = {};
+  final Set<int> _mineIndices = {};
   final Set<int> _revealedGemIndices = {};
   int? _explodedIndex;
   double _currentMultiplier = 1.0;
@@ -55,11 +64,17 @@ class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
   void initState() {
     super.initState();
     _clampMines();
-    
+    WalletRepository().tonBalance.addListener(_onBalanceChanged);
+    WalletRepository().starsBalance.addListener(_onBalanceChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreActiveRound();
+    });
   }
 
   @override
   void dispose() {
+    WalletRepository().tonBalance.removeListener(_onBalanceChanged);
+    WalletRepository().starsBalance.removeListener(_onBalanceChanged);
     _gameTimer?.cancel();
     for (final c in _tileControllers.values) {
       c.dispose();
@@ -87,12 +102,13 @@ class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
       prob *= (_boardSize.totalTiles - _mineCount - i) /
           (_boardSize.totalTiles - i);
     }
-    const houseEdge = 0.03; // 97% Return to Player
+    const houseEdge = 0.05;
     final mult = (1.0 - houseEdge) / prob;
-    return (mult * 100).floor() / 100.0;
+    return (mult * 100).round() / 100.0;
   }
 
-  double get _nextMultiplier => _calculateMultiplier(_safeGemsFound + 1);
+  double get _nextMultiplier =>
+      _serverNextMultiplier ?? _calculateMultiplier(_safeGemsFound + 1);
 
   double get _currentPayout {
     if (_selectedCurrency == BetCurrency.ton) {
@@ -120,138 +136,285 @@ class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
           _secondsRemaining--;
         });
       } else {
+        timer.cancel();
         _cashOut();
       }
     });
   }
 
-  void _startMatch() {
-    // Check balance
-    if (_selectedCurrency == BetCurrency.ton) {
-      if (_tonBalance < _betAmountTon) {
-        _showToast('Insufficient TON balance!');
-        return;
-      }
-      setState(() {
-        _tonBalance -= _betAmountTon;
-      });
-    } else {
-      if (_starsBalance < _betAmountStars) {
-        _showToast('Insufficient Stars balance!');
-        return;
-      }
-      setState(() {
-        _starsBalance -= _betAmountStars;
-      });
-    }
-
-    // Reset controllers
-    for (final c in _tileControllers.values) {
-      c.dispose();
+  void _prepareTileControllers(int tileCount) {
+    for (final controller in _tileControllers.values) {
+      controller.dispose();
     }
     _tileControllers.clear();
-
-    for (int i = 0; i < _boardSize.totalTiles; i++) {
-      _tileControllers[i] = AnimationController(
+    for (var index = 0; index < tileCount; index++) {
+      _tileControllers[index] = AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 350),
       );
     }
-
-    // Generate random mines
-    final rnd = math.Random();
-    final mines = <int>{};
-    while (mines.length < _mineCount) {
-      mines.add(rnd.nextInt(_boardSize.totalTiles));
-    }
-
-    setState(() {
-      _mineIndices = mines;
-      _revealedGemIndices.clear();
-      _explodedIndex = null;
-      _currentMultiplier = 1.0;
-      _phase = GamePhase.playing;
-    });
-
-    _startTimer();
-
-    try {
-      soloud.play(startMatch);
-    } catch (_) {}
   }
 
-  void _handleTileTap(int index) {
-    if (_phase != GamePhase.playing) return;
-    if (_revealedGemIndices.contains(index) || _explodedIndex != null) return;
+  Future<bool> _restoreActiveRound() async {
+    try {
+      final response = await GatewayApiService().getActiveMines();
+      if (!mounted) return false;
+      final active = response['activeRound'];
+      if (active is! Map<String, dynamic>) return false;
+      final roundId = active['roundId'];
+      final amount = active['amount'];
+      final currency = active['currency'];
+      final gridSize = active['gridSize'];
+      final mineCount = active['mineCount'];
+      if (roundId is! String ||
+          amount is! num ||
+          !['ton', 'stars'].contains(currency) ||
+          gridSize is! num ||
+          mineCount is! num) {
+        throw const FormatException('The backend returned an invalid active Mines round.');
+      }
 
-    final controller = _tileControllers[index];
-    controller?.forward();
-
-    HapticFeedback.lightImpact();
-
-    if (_mineIndices.contains(index)) {
-      // Hit a Bomb!
-      try {
-        soloud.play(bombEnd);
-      } catch (_) {}
-      _gameTimer?.cancel();
+      final restoredGridSize = gridSize.toInt() == 25 ? BoardSize.fiveByFive : BoardSize.threeByThree;
+      final revealed = (active['revealedTiles'] as List<dynamic>? ?? const [])
+          .whereType<num>()
+          .map((tile) => tile.toInt())
+          .toSet();
+      _prepareTileControllers(restoredGridSize.totalTiles);
       setState(() {
-        _explodedIndex = index;
-        _phase = GamePhase.exploded;
-      });
-      HapticFeedback.heavyImpact();
-
-      // Reveal remaining mines
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (!mounted) return;
-        for (final m in _mineIndices) {
-          _tileControllers[m]?.forward();
+        _currentRoundId = roundId;
+        _selectedCurrency = currency == 'stars' ? BetCurrency.stars : BetCurrency.ton;
+        _boardSize = restoredGridSize;
+        _mineCount = mineCount.toInt();
+        _clampMines();
+        if (_selectedCurrency == BetCurrency.stars) {
+          _betAmountStars = amount.toInt();
+        } else {
+          _betAmountTon = amount.toDouble();
         }
-        setState(() {});
+        _revealedGemIndices
+          ..clear()
+          ..addAll(revealed);
+        _mineIndices.clear();
+        _explodedIndex = null;
+        _currentMultiplier =
+            (active['currentMultiplier'] as num?)?.toDouble() ?? 1;
+        _serverNextMultiplier = null;
+        _phase = GamePhase.playing;
+        _isSubmitting = false;
       });
-    } else {
-      // Hit a Gem!
-      try {
-        soloud.play(notBomb);
-      } catch (_) {}
-      setState(() {
-        _revealedGemIndices.add(index);
-        _currentMultiplier = _calculateMultiplier(_safeGemsFound);
-      });
+      for (final tile in revealed) {
+        _tileControllers[tile]?.forward();
+      }
+      _startTimer();
+      await WalletRepository().refreshBalances();
+      return true;
+    } catch (error) {
+      if (mounted) _showToast('Unable to restore active Mines round: $error');
+      return false;
+    }
+  }
 
-      // If all safe gems collected -> Jackpot Auto Cash Out!
-      if (_safeGemsFound == _totalSafeGems) {
-        _cashOut(isJackpot: true);
+  Future<void> _startMatch() async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    try {
+      final response = await GatewayApiService().startMines(
+        amount: _selectedCurrency == BetCurrency.ton
+            ? _betAmountTon
+            : _betAmountStars.toDouble(),
+        currency: _selectedCurrency == BetCurrency.ton ? 'ton' : 'stars',
+        gridSize: _boardSize.totalTiles,
+        mineCount: _mineCount,
+      );
+      final roundId = response['roundId'];
+      if (response['success'] != true || roundId is! String || roundId.isEmpty) {
+        throw StateError(
+          response['error']?.toString() ?? 'The backend did not start a Mines round.',
+        );
+      }
+
+      if (!mounted) return;
+      _prepareTileControllers(_boardSize.totalTiles);
+
+      setState(() {
+        _currentRoundId = roundId;
+        _mineIndices.clear();
+        _revealedGemIndices.clear();
+        _explodedIndex = null;
+        _currentMultiplier = 1;
+        _serverNextMultiplier = (response['nextMultiplier'] as num?)?.toDouble();
+        _phase = GamePhase.playing;
+        _isSubmitting = false;
+      });
+      _startTimer();
+      await WalletRepository().refreshBalances();
+      try {
+        soloud.play(startMatch);
+      } catch (_) {}
+    } catch (error) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        if (!await _restoreActiveRound()) {
+          _showToast('Unable to start Mines round: $error');
+        }
       }
     }
   }
 
-  void _cashOut({bool isJackpot = false}) {
-    if (_phase != GamePhase.playing) return;
-    _gameTimer?.cancel();
+  Future<void> _handleTileTap(int index) async {
+    final roundId = _currentRoundId;
+    if (_phase != GamePhase.playing || roundId == null || _isSubmitting) return;
+    if (_revealedGemIndices.contains(index) || _explodedIndex != null) return;
 
-    final winAmount = _currentPayout;
-    if (_selectedCurrency == BetCurrency.ton) {
-      _tonBalance += winAmount;
-    } else {
-      _starsBalance += winAmount.round();
-    }
-
+    setState(() => _isSubmitting = true);
     try {
-      soloud.play(notBomb);
-    } catch (_) {}
+      final response = await GatewayApiService().revealMinesTile(
+        roundId: roundId,
+        tileIndex: index,
+      );
+      if (!mounted) return;
+      final status = response['status'];
+      final isMine = response['isMine'];
+      if (response['revealedTile'] != index ||
+          isMine is! bool ||
+          !['safe', 'busted', 'cashed_out'].contains(status)) {
+        throw StateError(
+          response['error']?.toString() ?? 'The backend returned an invalid Mines result.',
+        );
+      }
 
-    setState(() {
-      _phase = GamePhase.cashedOut;
-    });
+      final revealed = (response['revealedTiles'] as List<dynamic>? ?? const [])
+          .whereType<num>()
+          .map((tile) => tile.toInt())
+          .toSet();
+      final mines = (response['minePositions'] as List<dynamic>? ?? const [])
+          .whereType<num>()
+          .map((tile) => tile.toInt())
+          .toSet();
+      final serverMultiplier =
+          (response['currentMultiplier'] as num?)?.toDouble() ?? _currentMultiplier;
+      final nextMultiplier = (response['nextMultiplier'] as num?)?.toDouble();
 
-    // Reveal rest of the board gently
-    for (final m in _mineIndices) {
-      _tileControllers[m]?.forward();
+      if (status == 'safe') {
+        if (isMine) {
+          throw StateError('The backend marked a safe tile as a mine.');
+        }
+        try {
+          soloud.play(notBomb);
+        } catch (_) {}
+        HapticFeedback.lightImpact();
+        _tileControllers[index]?.forward();
+        setState(() {
+          _revealedGemIndices
+            ..clear()
+            ..addAll(revealed);
+          _currentMultiplier = serverMultiplier;
+          _serverNextMultiplier = nextMultiplier;
+          _isSubmitting = false;
+        });
+        return;
+      }
+
+      _gameTimer?.cancel();
+      _mineIndices
+        ..clear()
+        ..addAll(mines);
+      if (status == 'busted') {
+        try {
+          soloud.play(bombEnd);
+        } catch (_) {}
+        HapticFeedback.heavyImpact();
+        setState(() {
+          _revealedGemIndices
+            ..clear()
+            ..addAll(revealed.where((tile) => !mines.contains(tile)));
+          _explodedIndex = index;
+          _currentMultiplier = 0;
+          _serverNextMultiplier = null;
+          _phase = GamePhase.exploded;
+          _isSubmitting = false;
+        });
+        for (final tile in _revealedGemIndices) {
+          _tileControllers[tile]?.forward();
+        }
+        for (final mine in _mineIndices) {
+          _tileControllers[mine]?.forward();
+        }
+        return;
+      }
+
+      await WalletRepository().refreshBalances();
+      if (!mounted) return;
+      final payout = (response['payout'] as num?)?.toDouble();
+      if (payout == null) {
+        throw StateError('The backend did not return the Mines payout.');
+      }
+      setState(() {
+        _revealedGemIndices
+          ..clear()
+          ..addAll(revealed);
+        _currentMultiplier = serverMultiplier;
+        _serverNextMultiplier = null;
+        _phase = GamePhase.cashedOut;
+        _isSubmitting = false;
+      });
+      for (final tile in _revealedGemIndices) {
+        _tileControllers[tile]?.forward();
+      }
+      for (final mine in _mineIndices) {
+        _tileControllers[mine]?.forward();
+      }
+      _showWinModal(payout, true);
+    } catch (error) {
+      if (!mounted) return;
+      _tileControllers[index]?.reset();
+      setState(() => _isSubmitting = false);
+      _showToast('Unable to reveal tile: $error');
     }
+  }
 
-    HapticFeedback.mediumImpact();
-    _showWinModal(winAmount, isJackpot);
+  Future<void> _cashOut() async {
+    final roundId = _currentRoundId;
+    if (_phase != GamePhase.playing || roundId == null || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    try {
+      final response = await GatewayApiService().cashoutMines(roundId: roundId);
+      final payout = (response['payout'] as num?)?.toDouble();
+      if (response['status'] != 'cashed_out' || payout == null) {
+        throw StateError(
+          response['error']?.toString() ?? 'The backend did not confirm the Mines cashout.',
+        );
+      }
+      await WalletRepository().refreshBalances();
+      if (!mounted) return;
+      _gameTimer?.cancel();
+      _mineIndices
+        ..clear()
+        ..addAll(
+          (response['minePositions'] as List<dynamic>? ?? const [])
+              .whereType<num>()
+              .map((tile) => tile.toInt()),
+        );
+      setState(() {
+        _currentMultiplier =
+            (response['currentMultiplier'] as num?)?.toDouble() ?? _currentMultiplier;
+        _serverNextMultiplier = null;
+        _phase = GamePhase.cashedOut;
+        _isSubmitting = false;
+      });
+      for (final mine in _mineIndices) {
+        _tileControllers[mine]?.forward();
+      }
+      try {
+        soloud.play(notBomb);
+      } catch (_) {}
+      HapticFeedback.mediumImpact();
+      _showWinModal(payout, false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      _showToast('Unable to cash out: $error');
+    }
   }
 
   void _showWinModal(double amount, bool isJackpot) {
@@ -634,6 +797,7 @@ class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
                           : () {
                               setState(() {
                                 _mineCount--;
+                                _serverNextMultiplier = null;
                               });
                             },
                     ),
@@ -655,6 +819,7 @@ class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
                           : () {
                               setState(() {
                                 _mineCount++;
+                                _serverNextMultiplier = null;
                               });
                             },
                     ),
@@ -704,6 +869,7 @@ class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
                               setState(() {
                                 _boardSize = BoardSize.threeByThree;
                                 _clampMines();
+                                _serverNextMultiplier = null;
                               });
                             },
                     ),
@@ -717,6 +883,7 @@ class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
                               setState(() {
                                 _boardSize = BoardSize.fiveByFive;
                                 _clampMines();
+                                _serverNextMultiplier = null;
                               });
                             },
                     ),
@@ -1284,12 +1451,12 @@ class _MinesArenaGameScreenState extends State<MinesArenaGameScreen>
 
   // Stake Valuation Footer
   Widget _buildStakeValuation() {
-    final double usdVal = _selectedCurrency == BetCurrency.ton
-        ? _betAmountTon * 1.20
-        : _betAmountStars * 0.02;
+    final stake = _selectedCurrency == BetCurrency.ton
+        ? '${_betAmountTon.toStringAsFixed(3)} TON'
+        : '$_betAmountStars Stars';
 
     return Text(
-      'Stake valuation: \$${usdVal.toStringAsFixed(2)} USD',
+      'Bet amount: $stake',
       style: const TextStyle(
         color: Color(0xFF556277),
         fontSize: 11.5,

@@ -124,23 +124,17 @@ class GiftShopRepository {
     ];
   }
 
-  /// Initial placeholder inventory for frontend development as requested:
-  /// - Includes list of all gifts
-  /// - 100 stars
-  /// - 10 TON / 10 GRAM
-  /// - All clearly flagged as placeholders
+  /// Initial placeholder inventory for frontend development.
   Future<GiftShopUserInventory> loadInitialPlaceholderInventory() async {
     final catalog = await loadCatalog();
-
-    // Map gifts into user inventory marked as placeholder
     final placeholderOwned = catalog.take(25).toList();
 
     return GiftShopUserInventory(
-      starsBalance: 100, // PLACEHOLDER: 100 Stars demo
-      tonBalance: 10.0, // PLACEHOLDER: 10 TON demo
-      gramBalance: 10.0, // PLACEHOLDER: 10 GRAM demo
-      ownedGifts: placeholderOwned, // PLACEHOLDER: demo owned gifts
-      isPlaceholder: true, // FLAG PLACEHOLDER
+      starsBalance: 100,
+      tonBalance: 10.0,
+      gramBalance: 10.0,
+      ownedGifts: placeholderOwned,
+      isPlaceholder: true,
     );
   }
 
@@ -179,4 +173,3 @@ class GiftShopRepository {
     ),
   ];
 }
-

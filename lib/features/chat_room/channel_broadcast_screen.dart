@@ -34,6 +34,12 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
   bool _showChatInput = false;
 
   @override
+  void initState() {
+    super.initState();
+    _chatService.refreshChatData();
+  }
+
+  @override
   void dispose() {
     _inputController.dispose();
     _scrollController.dispose();

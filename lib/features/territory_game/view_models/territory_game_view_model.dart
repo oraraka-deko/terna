@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:terna/models/territory_game/territory_models.dart';
-import 'package:terna/services/territory_game/npc_engine_service.dart';
 import 'package:terna/services/territory_game/territory_slicing_service.dart';
 import 'package:terna/services/territory_game/territory_physics_service.dart';
 import 'package:terna/services/territory_game/territory_audio_service.dart';
@@ -81,8 +80,7 @@ class TerritoryGameViewModel extends ChangeNotifier {
     _initGame();
   }
 
-  Future<void> _initGame() async {
-    await NpcEngineService.init();
+  void _initGame() {
     _startNewRound();
   }
 
@@ -110,7 +108,6 @@ class TerritoryGameViewModel extends ChangeNotifier {
     _stopTimestampMs = null;
 
     notifyListeners();
-    _startBettingCountdown();
   }
 
   void _startBettingCountdown() {
@@ -133,12 +130,6 @@ class TerritoryGameViewModel extends ChangeNotifier {
         TerritoryAudioService.playTick();
       }
 
-      // Periodically spawn realistic NPC opponent bets
-      if ((secondsLeft == 12 || secondsLeft == 8 || secondsLeft == 4) &&
-          _roundState.bets.length < 6) {
-        _spawnNpcBet();
-      }
-
       if (newTime <= 0) {
         timer.cancel();
         _resolveRound();
@@ -152,35 +143,18 @@ class TerritoryGameViewModel extends ChangeNotifier {
     });
   }
 
-  void _spawnNpcBet() {
-    final existingIds = _roundState.bets.map((b) => b.playerId).toSet();
-    final npcBet = NpcEngineService.generateNpcBet(
-      index: _roundState.bets.length,
-      existingPlayerIds: existingIds,
-    );
-
-    final updatedBets = List<PlayerBet>.from(_roundState.bets)..add(npcBet);
-    final addTon = npcBet.currency == 'ton' ? npcBet.amount : 0.0;
-    final addStars = npcBet.currency == 'stars' ? npcBet.amount.toInt() : 0;
-
-    _roundState = _roundState.copyWith(
-      bets: updatedBets,
-      totalPotTon: _roundState.totalPotTon + addTon,
-      totalPotStars: _roundState.totalPotStars + addStars,
-    );
-    _cachedTerritories = TerritorySlicingService.computeProportionalTerritories(updatedBets);
-    TerritoryAudioService.playCoin();
-    notifyListeners();
-  }
-
   /// Places a bet from the local user
   bool placeUserBet({required String currency, required double amount}) {
-    if (_roundState.status != RoundStatus.bettingOpen || _roundState.isBettingClosed) {
+    if ((_roundState.status != RoundStatus.bettingOpen &&
+            _roundState.status != RoundStatus.waitingForPlayers) ||
+        _roundState.isBettingClosed) {
       return false;
     }
 
     final success = _repository.debitUserBalance(currency, amount);
     if (!success) return false;
+
+    final startsCountdown = _roundState.status == RoundStatus.waitingForPlayers;
 
     // Check if user already has an active bet this round
     const userId = 'current_user';
@@ -215,12 +189,14 @@ class TerritoryGameViewModel extends ChangeNotifier {
     final addStars = currency == 'stars' ? amount.toInt() : 0;
 
     _roundState = _roundState.copyWith(
+      status: RoundStatus.bettingOpen,
       bets: updatedBets,
       totalPotTon: _roundState.totalPotTon + addTon,
       totalPotStars: _roundState.totalPotStars + addStars,
     );
 
     _cachedTerritories = TerritorySlicingService.computeProportionalTerritories(updatedBets);
+    if (startsCountdown) _startBettingCountdown();
     TerritoryAudioService.playCoin();
     notifyListeners();
     return true;
@@ -234,36 +210,18 @@ class TerritoryGameViewModel extends ChangeNotifier {
     }
 
     _cachedTerritories = TerritorySlicingService.computeProportionalTerritories(_roundState.bets);
-
-    // Pick winner deterministically based on seed and territory win probabilities
-    final rand = math.Random(_roundState.roundId);
-    final pick = rand.nextDouble();
-    double cumulative = 0.0;
-    WatertightPolygon winningTerritory = _cachedTerritories.first;
-
-    for (final poly in _cachedTerritories) {
-      cumulative += poly.winProbability;
-      if (pick <= cumulative) {
-        winningTerritory = poly;
-        break;
-      }
-    }
-
-    final winningPlayerId = winningTerritory.playerId;
     const flightDurationMs = 12000.0;
-
-    // Simulate Air Hockey flight
-    final trajectory = TerritoryPhysicsService.simulateAirHockeyFlight(
-      seed: _roundState.roundId,
-      winnerPlayerId: winningPlayerId,
+    final trajectory = _repository.simulateRound(
+      roundId: _roundState.roundId,
       territories: _cachedTerritories,
       durationMs: flightDurationMs,
     );
-
-    final winnerBet = _roundState.bets.firstWhere(
-      (b) => b.playerId == winningPlayerId,
-      orElse: () => _roundState.bets.first,
+    final winningPlayerId = trajectory.winnerPlayerId;
+    final winningTerritory = _cachedTerritories.firstWhere(
+      (territory) => territory.playerId == winningPlayerId,
     );
+
+    final winnerBet = _roundState.bets.firstWhere((bet) => bet.playerId == winningPlayerId);
 
     // Calculate payouts
     final totalTon = _roundState.totalPotTon;
@@ -377,6 +335,7 @@ class TerritoryGameViewModel extends ChangeNotifier {
     _flightTicker?.cancel();
     _roundState = _roundState.copyWith(
       status: RoundStatus.winnerCelebration,
+      revealedServerSeed: _repository.revealServerSeed(_roundState.roundId),
     );
     cameraZoom = 1.0;
     cameraPanX = 230.0;
@@ -425,4 +384,3 @@ class TerritoryGameViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
-

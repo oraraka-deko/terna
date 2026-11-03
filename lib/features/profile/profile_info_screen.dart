@@ -4,17 +4,24 @@ import 'package:terna/core/theme/app_colors.dart';
 import 'package:terna/core/widgets/story_avatar_widget.dart';
 import '../../widgets/profile/profile_inventory_widget.dart';
 import '../../widgets/profile/profile_stats_widget.dart';
+import '../../services/chat/chat_service.dart';
 
 enum ProfileType { personal, channel }
 
 class ProfileInfoScreen extends StatefulWidget {
   final ProfileType type;
+  final String? username;
+  final String? avatar;
+  final String? subtitle;
   final VoidCallback? onBack;
   final VoidCallback? onActionTap;
 
   const ProfileInfoScreen({
     super.key,
     this.type = ProfileType.personal,
+    this.username,
+    this.avatar,
+    this.subtitle,
     this.onBack,
     this.onActionTap,
   });
@@ -88,7 +95,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                       children: [
                         // Avatar
                         StoryAvatarWidget(
-                          assetPath: isPersonal ? AppAssets.avatarCat : AppAssets.avatarCallDuck,
+                          assetPath: widget.avatar ?? (isPersonal ? ChatService().userBio.value.avatar : AppAssets.avatarCallDuck),
                           size: 84,
                           hasStory: isPersonal,
                           isOnline: isPersonal,
@@ -101,7 +108,7 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              isPersonal ? 'Cat' : 'Pavel Durov',
+                              widget.username ?? (isPersonal ? ChatService().userBio.value.username : 'Pavel Durov'),
                               style: const TextStyle(
                                 fontSize: 21,
                                 fontWeight: FontWeight.bold,

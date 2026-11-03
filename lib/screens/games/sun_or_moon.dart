@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:terna/main.dart';
 import 'package:terna/models/sun_or_moon/coin_side.dart';
@@ -10,6 +8,7 @@ import 'package:terna/widgets/sun_or_moon/history_drawer.dart';
 import 'package:terna/widgets/sun_or_moon/result_banner.dart';
 import 'package:terna/widgets/sun_or_moon/starry_background.dart';
 import 'package:terna/widgets/sun_or_moon/vault_card.dart';
+import 'package:terna/screens/wallet/wallet_screen.dart';
 
 class SunOrMoonGameScreen extends StatefulWidget {
   const SunOrMoonGameScreen({super.key});
@@ -50,43 +49,47 @@ class _SunOrMoonGameScreenState extends State<SunOrMoonGameScreen> {
 
   Future<void> _handleFlip() async {
     if (_game.isBankrupt) {
-      _game.claimBankruptcyRestart();
-      setState(() {
-        _displayedCoinSide = _game.selectedSide;
-        _lastSelectedSide = _game.selectedSide;
-      });
+      _showBankruptcyDialog();
       return;
     }
 
     if (_game.isFlipping) return;
 
-    // 1. Determine random outcome in advance for the flip animation target
-    final random = Random();
-    final systemOutcome = random.nextBool() ? CoinSide.sun : CoinSide.moon;
-
-    // 2. Set displayed coin target to system outcome and start flipping
-    setState(() {
-      _displayedCoinSide = systemOutcome;
-    });
+    final betAmount = _game.currentBet;
     _game.startFlipping();
+    if (!_game.isFlipping) return;
 
-    final handle = await soloud.play(flipping);
-    soloud.seek(handle, Duration(seconds: 7,milliseconds: 500));
-    soloud.setVolume(handle, 10.0);
-    // 3. Wait for 3D flip animation duration (1800ms)
+    late final CoinSide systemOutcome;
+    try {
+      systemOutcome = await _game.requestFlip();
+    } catch (error) {
+      _game.cancelFlip();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Flip failed: $error')));
+      }
+      return;
+    }
+
+    setState(() => _displayedCoinSide = systemOutcome);
+    try {
+      final handle = await soloud.play(flipping);
+      soloud.seek(handle, const Duration(milliseconds: 7500));
+      soloud.setVolume(handle, 10.0);
+    } catch (_) {}
+
     await Future.delayed(const Duration(milliseconds: 1800));
 
     if (!mounted) return;
 
-    // 4. Resolve the outcome on the game engine
-    _game.resolveFlip(forcedOutcome: systemOutcome);
+    _game.resolveFlip(forcedOutcome: systemOutcome, settledBet: betAmount);
 
     // Keep displaying the outcome that the coin actually landed on
     setState(() {
       _displayedCoinSide = systemOutcome;
     });
 
-    // If player just went bankrupt, prompt restart modal
+    // Prompt the player to add Stars after their balance reaches zero.
     if (_game.isBankrupt && mounted) {
       _showBankruptcyDialog();
     }
@@ -108,7 +111,7 @@ class _SunOrMoonGameScreenState extends State<SunOrMoonGameScreen> {
               Icon(Icons.lock_rounded, color: Color(0xFFFF5252), size: 28),
               SizedBox(width: 10),
               Text(
-                'SYSTEM LOCKED!',
+                'NO STARS LEFT',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -123,7 +126,7 @@ class _SunOrMoonGameScreenState extends State<SunOrMoonGameScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'All your funds have been locked by the system into the System Vault.',
+                'Add Stars to your wallet before playing another round.',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
@@ -141,14 +144,14 @@ class _SunOrMoonGameScreenState extends State<SunOrMoonGameScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Total Vault Locked:',
+                      'Stars in System Vault:',
                       style: TextStyle(
                         color: Colors.white70,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
-                      '\$${_game.systemLockedVault}',
+                      '${_game.systemLockedVault} ⭐',
                       style: const TextStyle(
                         color: Color(0xFFFF5252),
                         fontWeight: FontWeight.w900,
@@ -164,7 +167,9 @@ class _SunOrMoonGameScreenState extends State<SunOrMoonGameScreen> {
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                _game.claimBankruptcyRestart();
+                Navigator.of(
+                  this.context,
+                ).push(MaterialPageRoute(builder: (_) => const WalletScreen()));
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFB300),
@@ -178,7 +183,7 @@ class _SunOrMoonGameScreenState extends State<SunOrMoonGameScreen> {
                 ),
               ),
               child: const Text(
-                'CLAIM \$100 RESTART',
+                'OPEN WALLET',
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
             ),
@@ -225,7 +230,7 @@ class _SunOrMoonGameScreenState extends State<SunOrMoonGameScreen> {
               _RuleItem(
                 emoji: '💵',
                 title: 'Starting Funds',
-                description: 'You start with \$100 in your balance.',
+                description: 'Your bet uses your Stars wallet balance.',
               ),
               const SizedBox(height: 12),
               _RuleItem(
@@ -238,15 +243,13 @@ class _SunOrMoonGameScreenState extends State<SunOrMoonGameScreen> {
               _RuleItem(
                 emoji: '✨',
                 title: 'Win Condition (2x Multiplier)',
-                description:
-                    'If the coin lands on your chosen side, your bet is doubled (2x payout)!',
+                description: 'If the coin lands on your chosen side, your bet is doubled (2x payout)!',
               ),
               const SizedBox(height: 12),
               _RuleItem(
                 emoji: '🔒',
                 title: 'Loss Condition (System Locked)',
-                description:
-                    'If you lose, your bet is seized and locked in the System Vault.',
+                description: 'If you lose, your bet is seized and locked in the System Vault.',
               ),
             ],
           ),
@@ -366,10 +369,9 @@ class _SunOrMoonGameScreenState extends State<SunOrMoonGameScreen> {
                     ResultBanner(
                       won: _game.lastGameWon,
                       outcome: _game.lastOutcome,
-                      betAmount:
-                          _game.history.isNotEmpty
-                              ? _game.history.first.betAmount
-                              : _game.currentBet,
+                      betAmount: _game.history.isNotEmpty
+                          ? _game.history.first.betAmount
+                          : _game.currentBet,
                       isFlipping: _game.isFlipping,
                     ),
 

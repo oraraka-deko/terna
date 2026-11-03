@@ -5,16 +5,17 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../../core/constants/app_assets.dart';
 import '../../models/chat/chat_models.dart';
+import '../api/gateway_api_service.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
   factory ChatService() => _instance;
   ChatService._internal() {
-    _initDemoState();
+    refreshChatData();
   }
 
-  final String currentUserId = 'terna_player_me';
-  final String currentUsername = '@terna_player';
+  String get currentUserId => GatewayApiService().currentUserId;
+  String get currentUsername => GatewayApiService().currentUsername;
 
   final ValueNotifier<List<FriendItem>> friends = ValueNotifier<List<FriendItem>>([]);
   final ValueNotifier<Map<String, List<ChatMessage>>> directMessages = ValueNotifier<Map<String, List<ChatMessage>>>({});
@@ -22,205 +23,124 @@ class ChatService {
   final ValueNotifier<List<ChatGroup>> groups = ValueNotifier<List<ChatGroup>>([]);
   final ValueNotifier<GamerBioData> userBio = ValueNotifier<GamerBioData>(
     const GamerBioData(
-      userId: 'terna_player_me',
+      userId: 'demo_user_1',
       username: '@terna_player',
       avatar: AppAssets.avatarTravelDuckParis,
       playStyle: 'Tactical Striker 🎯',
       favoriteCharacter: 'Genesis Durov',
       postMatchReaction: 'Always ready for a rematch! 🔥',
       aboutMe: 'Arena Player & Telegram WebApp Pioneer 🚀',
-      roundsPlayed: 168,
-      roundsWon: 112,
-      totalWagered: 1840.0,
-      biggestWin: 420.0,
+      roundsPlayed: 0,
+      roundsWon: 0,
+      totalWagered: 0.0,
+      biggestWin: 0.0,
     ),
   );
-  final ValueNotifier<int> onlineCount = ValueNotifier<int>(1482);
+  final ValueNotifier<int> onlineCount = ValueNotifier<int>(1);
+  final ValueNotifier<bool> isLoading = ValueNotifier<bool>(false);
 
-  void _initDemoState() {
-    final now = DateTime.now();
+  /// Synchronize chat messages, friends, and gamer bio with the backend
+  Future<void> refreshChatData() async {
+    try {
+      isLoading.value = true;
+      final api = GatewayApiService();
 
-    // 1. Initial Friends
-    friends.value = [
-      const FriendItem(
-        id: 'fr_1',
-        userId: 'terna_player_me',
-        friendId: 'cat',
-        friendUsername: 'Cat',
-        friendAvatar: AppAssets.avatarCat,
-        status: FriendStatus.accepted,
-        isOnline: true,
-        playStyle: 'Lucky Gambler 🎲',
-      ),
-      const FriendItem(
-        id: 'fr_2',
-        userId: 'terna_player_me',
-        friendId: 'penguin',
-        friendUsername: 'Penguin',
-        friendAvatar: AppAssets.avatarPenguin,
-        status: FriendStatus.accepted,
-        isOnline: true,
-        playStyle: 'High Roller Whale 🐋',
-      ),
-      const FriendItem(
-        id: 'fr_3',
-        userId: 'terna_player_me',
-        friendId: 'dolphin',
-        friendUsername: 'Dolphin',
-        friendAvatar: AppAssets.avatarDolphin,
-        status: FriendStatus.accepted,
-        isOnline: true,
-        playStyle: 'Tactical Striker 🎯',
-      ),
-      const FriendItem(
-        id: 'fr_4',
-        userId: 'terna_player_me',
-        friendId: 'dog',
-        friendUsername: 'Dog',
-        friendAvatar: AppAssets.avatarDog,
-        status: FriendStatus.accepted,
-        isOnline: false,
-        playStyle: 'Zen Defender 🛡️',
-      ),
-      const FriendItem(
-        id: 'fr_5',
-        userId: 'terna_player_me',
-        friendId: 'pepe',
-        friendUsername: 'Pepe',
-        friendAvatar: AppAssets.avatarPepe,
-        status: FriendStatus.accepted,
-        isOnline: false,
-        playStyle: 'Relic Hunter 💎',
-      ),
-      // Incoming request from area_game demo
-      const FriendItem(
-        id: 'fr_req_1',
-        userId: 'genesis_durov',
-        friendId: 'terna_player_me',
-        friendUsername: 'Genesis Durov',
-        friendAvatar: AppAssets.avatarTravelDuckParis,
-        status: FriendStatus.pending,
-        isOnline: true,
-        playStyle: 'High Roller Whale 🐋',
-      ),
-    ];
+      // 1. Fetch Global Live Chat messages
+      final rawGlobal = await api.getChatMessages(scope: 'global', limit: 50);
+      if (rawGlobal.isNotEmpty) {
+        final parsedGlobal = <ChatMessage>[];
+        for (final item in rawGlobal) {
+          if (item is Map<String, dynamic>) {
+            parsedGlobal.add(_parseBackendMessage(item));
+          }
+        }
+        globalMessages.value = parsedGlobal;
+      }
 
-    // 2. Direct Messages for 'cat'
-    directMessages.value = {
-      'cat': [
-        ChatMessage(
-          id: 'msg_cat_1',
-          senderId: 'cat',
-          senderName: 'Cat',
-          senderAvatar: AppAssets.avatarCat,
-          text: 'Hey! Ready for some Arena games today? 🎮',
-          timestamp: now.subtract(const Duration(minutes: 12)),
-          time: '9:38',
-          isOutgoing: false,
-          reactions: {'🔥': 2},
-        ),
-        ChatMessage(
-          id: 'msg_cat_2',
-          senderId: 'terna_player_me',
-          senderName: 'You',
-          text: 'Send a dice emoji to roll a die!',
-          timestamp: now.subtract(const Duration(minutes: 8)),
-          time: '9:40',
-          isOutgoing: true,
-        ),
-        ChatMessage(
-          id: 'msg_cat_3',
-          senderId: 'cat',
-          senderName: 'Cat',
-          senderAvatar: AppAssets.avatarCat,
-          text: '🎲 Rolled a 6!',
-          timestamp: now.subtract(const Duration(minutes: 7)),
-          time: '9:41',
-          isOutgoing: false,
-          isDice: true,
-        ),
-        ChatMessage(
-          id: 'msg_cat_4',
-          senderId: 'cat',
-          senderName: 'Cat',
-          senderAvatar: AppAssets.avatarCat,
-          text: 'Video message note',
-          timestamp: now.subtract(const Duration(minutes: 5)),
-          time: '9:41',
-          isOutgoing: false,
-          isVideoNote: true,
-        ),
-      ],
-    };
+      // 2. Fetch friends & social list
+      final rawFriends = await api.getFriends();
+      if (rawFriends.isNotEmpty) {
+        final parsedFriends = <FriendItem>[];
+        for (final item in rawFriends) {
+          if (item is Map<String, dynamic>) {
+            parsedFriends.add(
+              FriendItem(
+                id: item['id']?.toString() ?? 'fr_${item['friendId']}',
+                userId: item['userId']?.toString() ?? currentUserId,
+                friendId: item['friendId']?.toString() ?? '',
+                friendUsername: item['friendUsername']?.toString() ?? item['username']?.toString() ?? 'Player',
+                friendAvatar: item['friendAvatar']?.toString() ?? item['avatar']?.toString() ?? AppAssets.avatarDino,
+                status: item['status'] == 'pending' ? FriendStatus.pending : FriendStatus.accepted,
+                isOnline: item['isOnline'] == true,
+                playStyle: item['playStyle']?.toString() ?? 'Gamer 🎮',
+              ),
+            );
+          }
+        }
+        friends.value = parsedFriends;
+      }
 
-    // 3. Global Broadcast / Live Chat Messages
-    globalMessages.value = [
-      ChatMessage(
-        id: 'g_msg_1',
-        senderId: 'durov',
-        senderName: 'Pavel Durov',
-        senderAvatar: AppAssets.avatarTravelDuckParis,
-        text: 'Welcome to the Terna Global Live Arena! Fast WebAssembly settlement and TON on-chain transfers are live. 🚀',
-        timestamp: now.subtract(const Duration(minutes: 25)),
-        time: '18:10',
-        scope: 'global',
-        isOutgoing: false,
-        reactions: {'🔥': 148, '❤️': 89, '🚀': 120},
-      ),
-      ChatMessage(
-        id: 'g_msg_2',
-        senderId: 'crypto_whale',
-        senderName: 'Crypto Whale 🐋',
-        senderAvatar: AppAssets.avatarDolphin,
-        text: 'Just won 25 TON on American Roulette straight-up on 17 Black! 🤑',
-        timestamp: now.subtract(const Duration(minutes: 14)),
-        time: '18:21',
-        scope: 'global',
-        isOutgoing: false,
-        reactions: {'👏': 12, '🤑': 8},
-      ),
-      ChatMessage(
-        id: 'g_msg_3',
-        senderId: 'arena_master',
-        senderName: 'Arena Master ⚔️',
-        senderAvatar: AppAssets.avatarPepe,
-        text: 'Next Territory slicing tournament starts in 30 minutes. Pool is 100 TON!',
-        timestamp: now.subtract(const Duration(minutes: 5)),
-        time: '18:30',
-        scope: 'global',
-        isOutgoing: false,
-        reactions: {'⚔️': 24, '🔥': 19},
-      ),
-    ];
+      // 3. Fetch user bio
+      final rawBio = await api.getGamerBio(currentUserId);
+      if (rawBio.isNotEmpty) {
+        userBio.value = GamerBioData(
+          userId: currentUserId,
+          username: rawBio['nickname']?.toString().isNotEmpty == true
+              ? rawBio['nickname'].toString()
+              : currentUsername,
+          avatar: rawBio['avatar']?.toString() ?? AppAssets.avatarTravelDuckParis,
+          playStyle: rawBio['playStyle']?.toString() ?? 'Tactical Striker 🎯',
+          favoriteCharacter: rawBio['favoriteGame']?.toString() ?? 'Genesis Durov',
+          postMatchReaction: rawBio['postMatchReaction']?.toString() ?? 'Always ready for a rematch! 🔥',
+          aboutMe: rawBio['bioText']?.toString() ?? '',
+          roundsPlayed: (rawBio['roundsPlayed'] as num?)?.toInt() ?? 0,
+          roundsWon: (rawBio['roundsWon'] as num?)?.toInt() ?? 0,
+          totalWagered: (rawBio['totalWagered'] as num?)?.toDouble() ?? 0.0,
+          biggestWin: (rawBio['biggestWin'] as num?)?.toDouble() ?? 0.0,
+        );
+      }
+    } catch (e) {
+      debugPrint('[ChatService] refreshChatData offline fallback: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
 
-    // 4. Chat Groups
-    groups.value = [
-      const ChatGroup(
-        id: 'grp_global',
-        name: 'Terna Global Community',
-        description: 'Official global chat room for all players and builders',
-        icon: '💬',
-        creatorId: 'durov',
-        memberCount: 1482,
-      ),
-      const ChatGroup(
-        id: 'grp_whales',
-        name: 'High Roller VIPs 🐋',
-        description: 'Exclusive private discussion for top tournament players',
-        icon: '🐋',
-        creatorId: 'crypto_whale',
-        isPrivate: true,
-        memberCount: 48,
-      ),
-      const ChatGroup(
-        id: 'grp_arcade',
-        name: 'Arcade & Tower Masters 🏆',
-        description: 'Strategy discussions for Mines Arena and Tower climb',
-        icon: '🏆',
-        creatorId: 'arena_master',
-        memberCount: 312,
-      ),
-    ];
+  ChatMessage _parseBackendMessage(Map<String, dynamic> item) {
+    final ts = item['timestamp'] != null
+        ? DateTime.fromMillisecondsSinceEpoch((item['timestamp'] as num).toInt())
+        : DateTime.now();
+    final timeStr = '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
+
+    final senderId = item['senderId']?.toString() ?? '';
+    final isOut = senderId == currentUserId;
+
+    Map<String, int> reactions = {};
+    if (item['reactions'] is Map) {
+      (item['reactions'] as Map).forEach((k, v) {
+        if (v is num) {
+          reactions[k.toString()] = v.toInt();
+        } else if (v is List) {
+          reactions[k.toString()] = v.length;
+        }
+      });
+    }
+
+    return ChatMessage(
+      id: item['id']?.toString() ?? 'msg_${ts.millisecondsSinceEpoch}',
+      senderId: senderId,
+      senderName: item['sender']?.toString() ?? item['senderName']?.toString() ?? 'Player',
+      senderAvatar: item['avatar']?.toString() ?? item['senderAvatar']?.toString() ?? AppAssets.avatarDino,
+      text: item['text']?.toString() ?? '',
+      timestamp: ts,
+      time: timeStr,
+      scope: item['scope']?.toString() ?? 'global',
+      recipientId: item['recipientId']?.toString(),
+            isOutgoing: isOut,
+      replyToId: item['replyToId']?.toString(),
+      replyText: item['replyPreview']?.toString() ?? item['replyText']?.toString(),
+      reactions: reactions,
+    );
   }
 
   // --------------------------------------------------------------------------
@@ -230,31 +150,35 @@ class ChatService {
     final clean = username.trim().replaceAll('@', '');
     if (clean.isEmpty) return false;
 
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      final ok = await GatewayApiService().sendFriendRequest(clean);
+      if (ok) {
+        final newReq = FriendItem(
+          id: 'fr_${DateTime.now().millisecondsSinceEpoch}',
+          userId: currentUserId,
+          friendId: clean.toLowerCase(),
+          friendUsername: '@$clean',
+          friendAvatar: AppAssets.avatarDino,
+          status: FriendStatus.pending,
+          isOnline: true,
+          playStyle: 'Tactical Striker 🎯',
+        );
+        friends.value = [newReq, ...friends.value];
+        return true;
+      }
+    } catch (_) {}
 
-    // Check if already friends
-    final existing = friends.value.any((f) => f.friendUsername.toLowerCase() == clean.toLowerCase());
-    if (existing) return false;
-
-    final newReq = FriendItem(
-      id: 'fr_${DateTime.now().millisecondsSinceEpoch}',
-      userId: currentUserId,
-      friendId: clean.toLowerCase(),
-      friendUsername: '@$clean',
-      friendAvatar: AppAssets.avatarTravelDuckParis,
-      status: FriendStatus.pending,
-      isOnline: true,
-      playStyle: 'Tactical Striker 🎯',
-    );
-
-    friends.value = [newReq, ...friends.value];
-    return true;
+    return false;
   }
 
-  void acceptFriendRequest(String id) {
+  Future<void> acceptFriendRequest(String id) async {
     final list = List<FriendItem>.from(friends.value);
     final idx = list.indexWhere((f) => f.id == id);
     if (idx != -1) {
+      final friend = list[idx];
+      try {
+        await GatewayApiService().respondFriendRequest(friend.friendId, true);
+      } catch (_) {}
       list[idx] = list[idx].copyWith(status: FriendStatus.accepted);
       friends.value = list;
     }
@@ -262,8 +186,15 @@ class ChatService {
 
   void declineFriendRequest(String id) {
     final list = List<FriendItem>.from(friends.value);
-    list.removeWhere((f) => f.id == id);
-    friends.value = list;
+    final idx = list.indexWhere((f) => f.id == id);
+    if (idx != -1) {
+      final friend = list[idx];
+      try {
+        GatewayApiService().respondFriendRequest(friend.friendId, false);
+      } catch (_) {}
+      list.removeAt(idx);
+      friends.value = list;
+    }
   }
 
   void removeFriend(String id) {
@@ -275,6 +206,23 @@ class ChatService {
   // --------------------------------------------------------------------------
   // DIRECT CHAT ACTIONS
   // --------------------------------------------------------------------------
+  Future<void> fetchDirectMessages(String recipientId) async {
+    try {
+      final raw = await GatewayApiService().getChatMessages(scope: 'direct', targetId: recipientId);
+      final list = <ChatMessage>[];
+      for (final item in raw) {
+        if (item is Map<String, dynamic>) {
+          list.add(_parseBackendMessage(item));
+        }
+      }
+      final map = Map<String, List<ChatMessage>>.from(directMessages.value);
+      map[recipientId] = list;
+      directMessages.value = map;
+    } catch (e) {
+      debugPrint('[ChatService] fetchDirectMessages error: $e');
+    }
+  }
+
   void sendDirectMessage({
     required String recipientId,
     required String text,
@@ -302,46 +250,33 @@ class ChatService {
       isDice: isDice,
     );
 
+    // Optimistically update UI
     final map = Map<String, List<ChatMessage>>.from(directMessages.value);
     final currentList = map[recipientId] ?? [];
     map[recipientId] = [...currentList, newMsg];
     directMessages.value = map;
 
-    // Graceful offline reply simulation if recipient is 'cat' or other bot
-    if (recipientId == 'cat') {
-      _scheduleAutoReply(recipientId, transfer != null);
+    // Post to backend asynchronously
+    final api = GatewayApiService();
+    api.postChatMessage(
+      text: text,
+      scope: 'direct',
+      recipientId: recipientId,
+      replyToId: replyToId,
+      replyPreview: replyText,
+    ).catchError((_) => <String, dynamic>{});
+
+    // If transfer attached, execute backend transfer
+    if (transfer != null) {
+      api.executeChatTransfer(
+        recipientId: recipientId,
+        recipientName: recipientId,
+        type: transfer.type,
+        amount: transfer.amount,
+        giftId: transfer.giftId,
+        giftName: transfer.giftName,
+      ).catchError((_) => <String, dynamic>{});
     }
-  }
-
-  void _scheduleAutoReply(String recipientId, bool isTransfer) {
-    Timer(const Duration(milliseconds: 1400), () {
-      final now = DateTime.now();
-      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-
-      String replyText = 'Nice! Thanks for the message! Let’s play a round of Plinko! 🐱';
-      if (isTransfer) {
-        replyText = 'Whoa! Thank you so much for the transfer! You are the best! 💖🎁';
-      }
-
-      final autoMsg = ChatMessage(
-        id: 'dm_reply_${now.millisecondsSinceEpoch}',
-        senderId: recipientId,
-        senderName: 'Cat',
-        senderAvatar: AppAssets.avatarCat,
-        text: replyText,
-        timestamp: now,
-        time: timeStr,
-        scope: 'direct',
-        recipientId: currentUserId,
-        isOutgoing: false,
-        reactions: {'❤️': 1},
-      );
-
-      final map = Map<String, List<ChatMessage>>.from(directMessages.value);
-      final currentList = map[recipientId] ?? [];
-      map[recipientId] = [...currentList, autoMsg];
-      directMessages.value = map;
-    });
   }
 
   // --------------------------------------------------------------------------
@@ -359,7 +294,7 @@ class ChatService {
     final newMsg = ChatMessage(
       id: 'g_${now.millisecondsSinceEpoch}_${Random().nextInt(999)}',
       senderId: currentUserId,
-      senderName: 'You (@terna_player)',
+      senderName: 'You ($currentUsername)',
       text: text,
       timestamp: now,
       time: timeStr,
@@ -371,6 +306,14 @@ class ChatService {
     );
 
     globalMessages.value = [...globalMessages.value, newMsg];
+
+    // Post to backend
+    GatewayApiService().postChatMessage(
+      text: text,
+      scope: 'global',
+      replyToId: replyToId,
+      replyPreview: replyText,
+    ).catchError((_) => <String, dynamic>{});
   }
 
   // --------------------------------------------------------------------------
@@ -398,6 +341,8 @@ class ChatService {
         directMessages.value = map;
       }
     }
+
+    GatewayApiService().toggleChatReaction(messageId: messageId, emoji: emoji).catchError((_) => <String, dynamic>{});
   }
 
   // --------------------------------------------------------------------------
@@ -426,36 +371,6 @@ class ChatService {
   // --------------------------------------------------------------------------
   GamerBioData getGamerBio(String userId, {String defaultName = 'Player'}) {
     if (userId == currentUserId) return userBio.value;
-    if (userId == 'cat') {
-      return const GamerBioData(
-        userId: 'cat',
-        username: 'Cat',
-        avatar: AppAssets.avatarCat,
-        playStyle: 'Lucky Gambler 🎲',
-        favoriteCharacter: 'Space Cat 🐱',
-        postMatchReaction: 'Always ready for a rematch! 🔥',
-        aboutMe: 'Fast dice roller & arena champion.',
-        roundsPlayed: 320,
-        roundsWon: 210,
-        totalWagered: 3500.0,
-        biggestWin: 920.0,
-      );
-    }
-    if (userId == 'penguin') {
-      return const GamerBioData(
-        userId: 'penguin',
-        username: 'Penguin',
-        avatar: AppAssets.avatarPenguin,
-        playStyle: 'High Roller Whale 🐋',
-        favoriteCharacter: 'Polar Duke 🐧',
-        postMatchReaction: 'Winner takes all! 🏆',
-        aboutMe: 'Whale trader on TON Network.',
-        roundsPlayed: 540,
-        roundsWon: 390,
-        totalWagered: 12400.0,
-        biggestWin: 2850.0,
-      );
-    }
     return GamerBioData(
       userId: userId,
       username: defaultName,
@@ -463,17 +378,27 @@ class ChatService {
     );
   }
 
-  void updateBio({
+  Future<void> updateBio({
     required String playStyle,
     required String favoriteCharacter,
     required String postMatchReaction,
     required String aboutMe,
-  }) {
+  }) async {
     userBio.value = userBio.value.copyWith(
       playStyle: playStyle,
       favoriteCharacter: favoriteCharacter,
       postMatchReaction: postMatchReaction,
       aboutMe: aboutMe,
     );
+
+    try {
+      await GatewayApiService().updateGamerBio({
+        'nickname': userBio.value.username,
+        'bioText': aboutMe,
+        'playStyle': playStyle,
+        'favoriteGame': favoriteCharacter,
+        'postMatchReaction': postMatchReaction,
+      });
+    } catch (_) {}
   }
 }

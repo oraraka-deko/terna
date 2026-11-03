@@ -202,7 +202,7 @@ class TerritorySlicingService {
         return poly;
       }
     }
-    return territories.isNotEmpty ? territories.first : null;
+    return null;
   }
 
   /// Main algorithm: Proportional Voronoi / Column Slicing Engine

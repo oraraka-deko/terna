@@ -1,3 +1,4 @@
+import 'package:terna/core/widgets/safe_avatar_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terna/models/bump_game/bump_models.dart';
@@ -165,7 +166,7 @@ class _BumpPlayerRosterWidgetState extends State<BumpPlayerRosterWidget> {
                     CircleAvatar(
                       radius: 14,
                       backgroundColor: b.color.withValues(alpha: 0.2),
-                      backgroundImage: b.avatar.isNotEmpty ? AssetImage(b.avatar) : null,
+                      backgroundImage: b.avatar.isNotEmpty ? safeImageProvider(b.avatar)! : null,
                       child: b.avatar.isEmpty
                           ? Text(
                               b.displayName.replaceAll('@', '').isNotEmpty

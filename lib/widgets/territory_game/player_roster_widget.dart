@@ -1,3 +1,4 @@
+import 'package:terna/core/widgets/safe_avatar_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terna/models/territory_game/territory_models.dart';
@@ -163,7 +164,7 @@ class _PlayerRosterWidgetState extends State<PlayerRosterWidget> {
                     CircleAvatar(
                       radius: 14,
                       backgroundColor: bet.color.withValues(alpha: 0.2),
-                      backgroundImage: bet.avatar.isNotEmpty ? AssetImage(bet.avatar) : null,
+                      backgroundImage: bet.avatar.isNotEmpty ? safeImageProvider(bet.avatar)! : null,
                       child: bet.avatar.isEmpty
                           ? Text(
                               bet.username.replaceAll('@', '').isNotEmpty

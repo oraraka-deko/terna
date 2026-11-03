@@ -1,3 +1,4 @@
+import 'package:terna/core/widgets/safe_avatar_image.dart';
 import 'package:flutter/material.dart';
 import 'package:terna/models/territory_game/territory_models.dart';
 import 'territory_painter.dart';
@@ -60,7 +61,7 @@ class _TerritoryCanvasWidgetState extends State<TerritoryCanvasWidget> {
     for (final poly in widget.territories) {
       if (poly.avatar.isNotEmpty && !_avatarImageCache.containsKey(poly.avatar)) {
         _avatarImageCache[poly.avatar] = null;
-        final imageProvider = AssetImage(poly.avatar);
+        final imageProvider = safeImageProvider(poly.avatar)!;
         final stream = imageProvider.resolve(ImageConfiguration.empty);
         stream.addListener(
           ImageStreamListener((ImageInfo info, bool _) {

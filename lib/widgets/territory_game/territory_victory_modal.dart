@@ -1,3 +1,4 @@
+import 'package:terna/core/widgets/safe_avatar_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:terna/models/territory_game/territory_models.dart';
@@ -90,7 +91,7 @@ class _TerritoryVictoryModalState extends State<TerritoryVictoryModal> {
                       radius: 40,
                       backgroundColor: winner.color,
                       backgroundImage:
-                          winner.avatar.isNotEmpty ? AssetImage(winner.avatar) : null,
+                          winner.avatar.isNotEmpty ? safeImageProvider(winner.avatar)! : null,
                       child: winner.avatar.isEmpty
                           ? Text(
                               winner.username.replaceAll('@', '').isNotEmpty

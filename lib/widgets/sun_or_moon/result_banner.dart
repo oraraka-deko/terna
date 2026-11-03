@@ -103,8 +103,8 @@ class ResultBanner extends StatelessWidget {
             children: [
               Text(
                 isWin
-                    ? 'WIN! 2X PAYOUT (+ \$$betAmount)'
-                    : 'LOST! \$$betAmount LOCKED BY SYSTEM',
+                    ? 'WIN! 2X PAYOUT (+ ${betAmount} ⭐)'
+                    : 'LOST! ${betAmount} ⭐',
                 style: TextStyle(
                   color: isWin ? const Color(0xFF69F0AE) : const Color(0xFFFF8A80),
                   fontSize: 14,

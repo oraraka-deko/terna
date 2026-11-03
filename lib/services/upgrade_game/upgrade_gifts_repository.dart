@@ -1,7 +1,12 @@
+library;
+
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import '../../models/upgrade_game/telegram_gift_model.dart';
 import '../../models/upgrade_game/upgrade_game_models.dart';
+import '../api/gateway_api_service.dart';
+import '../inventory/inventory_repository.dart';
+import '../wallet/wallet_repository.dart';
 
 class UpgradeGiftsRepository {
   // Exchange rates matching area_game
@@ -12,10 +17,35 @@ class UpgradeGiftsRepository {
 
   List<TelegramGift> _cachedCatalog = [];
 
-  /// Load catalog gifts from assets/telegram/gifts/telegram_gifts.json
+  /// Load catalog gifts from backend /api/gifts/targets or fallback to assets/telegram/gifts/telegram_gifts.json
   Future<List<TelegramGift>> loadCatalog() async {
     if (_cachedCatalog.isNotEmpty) return _cachedCatalog;
 
+    // 1. Try live backend upgrade targets
+    try {
+      final targets = await GatewayApiService().getUpgradeTargets();
+      if (targets.isNotEmpty) {
+        final parsed = <TelegramGift>[];
+        for (final item in targets) {
+          if (item is Map<String, dynamic>) {
+            parsed.add(
+              TelegramGift(
+                giftId: item['id']?.toString() ?? 'target',
+                name: item['name']?.toString() ?? 'Gift',
+                priceStars: (item['starsValue'] as num?)?.toInt() ?? 0,
+                                isUpgradeable: true,
+              ),
+            );
+          }
+        }
+        if (parsed.isNotEmpty) {
+          _cachedCatalog = parsed;
+          return _cachedCatalog;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fallback to asset file
     try {
       final jsonStr = await rootBundle.loadString('assets/telegram/gifts/telegram_gifts.json');
       final dynamic decoded = jsonDecode(jsonStr);
@@ -26,7 +56,6 @@ class UpgradeGiftsRepository {
             .toList();
       }
     } catch (_) {
-      // Fallback: provide fallback gifts matching known asset IDs
       _cachedCatalog = _fallbackGifts;
     }
 
@@ -37,29 +66,33 @@ class UpgradeGiftsRepository {
     return _cachedCatalog;
   }
 
-  /// Initial placeholder inventory for frontend development as requested:
-  /// - Includes list of all gifts
-  /// - 100 stars
-  /// - 10 TON
-  /// - All clearly flagged as placeholders
-  Future<UpgradeUserInventory> loadInitialPlaceholderInventory() async {
-    final catalog = await loadCatalog();
+  /// Live user inventory loaded from backend /api/wallet/inventory and WalletRepository
+  Future<UpgradeUserInventory> loadUserInventory() async {
+    final wallet = WalletRepository();
+    final invRepo = InventoryRepository();
+    await invRepo.fetchInventory();
 
-    // Map each catalog gift to a user inventory item marked as placeholder
-    final placeholderGifts = catalog.map((gift) {
-      return gift.copyWith(
-        instanceId: 'demo_inst_${gift.giftId}',
-        isPlaceholder: true, // FLAG PLACEHOLDER
+    final gifts = invRepo.userItems.value.map((item) {
+      return TelegramGift(
+        giftId: item.giftId,
+        instanceId: item.instanceId,
+        name: item.name,
+        priceStars: item.priceStars,
+                isUpgradeable: true,
+        isPlaceholder: false,
       );
     }).toList();
 
     return UpgradeUserInventory(
-      tonBalance: 10.0, // PLACEHOLDER: 10 TON
-      starsBalance: 100, // PLACEHOLDER: 100 Stars
-      gifts: placeholderGifts, // PLACEHOLDER: all gifts
-      isPlaceholder: true, // FLAG PLACEHOLDER
+      tonBalance: wallet.tonBalance.value,
+      starsBalance: wallet.starsBalance.value,
+      gifts: gifts,
+      isPlaceholder: false,
     );
   }
+
+  /// Backward-compatible alias
+  Future<UpgradeUserInventory> loadInitialPlaceholderInventory() => loadUserInventory();
 
   double starsToTon(int stars) {
     if (tonRateUsd <= 0) return 0.0;
@@ -84,4 +117,3 @@ class UpgradeGiftsRepository {
     const TelegramGift(giftId: '6001229799790478558', name: 'Infinity Cube', priceStars: 1000),
   ];
 }
-

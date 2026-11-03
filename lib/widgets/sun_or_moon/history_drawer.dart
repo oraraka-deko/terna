@@ -149,7 +149,7 @@ class HistoryDrawer extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Bet: \$${item.betAmount} • Balance: \$${item.balanceAfter}',
+                                    'Bet: ${item.betAmount} ⭐ • Balance: ${item.balanceAfter} ⭐',
                                     style: TextStyle(
                                       color: Colors.white.withValues(alpha: 0.4),
                                       fontSize: 11,
@@ -160,8 +160,8 @@ class HistoryDrawer extends StatelessWidget {
                             ),
                             Text(
                               item.won
-                                  ? '+ \$${item.netChange}'
-                                  : '- \$${item.betAmount}',
+                                  ? '+ ${item.netChange} ⭐'
+                                  : '- ${item.betAmount} ⭐',
                               style: TextStyle(
                                 color: item.won
                                     ? const Color(0xFF69F0AE)

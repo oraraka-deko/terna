@@ -33,11 +33,12 @@ class VaultCard extends StatelessWidget {
               icon: Icons.account_balance_wallet_rounded,
               iconColor: const Color(0xFF69F0AE),
               label: 'PLAYER BALANCE',
-              value: '\$${game.playerBalance}',
+              value: '${game.playerBalance} ⭐',
               valueColor: game.playerBalance > 0
                   ? const Color(0xFF69F0AE)
                   : const Color(0xFFFF5252),
-              subtext: 'High: \$${game.highestBalance}',
+              subtext:
+                  '${game.tonBalance.toStringAsFixed(3)} TON • High: ${game.highestBalance} ⭐',
             ),
           ),
 
@@ -48,15 +49,15 @@ class VaultCard extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.15),
           ),
 
-          // System Vault (Locked Money)
+          // System Vault (game statistic)
           Expanded(
             child: _StatColumn(
               icon: Icons.lock_outline_rounded,
               iconColor: const Color(0xFFFF5252),
               label: 'SYSTEM VAULT',
-              value: '\$${game.systemLockedVault}',
+              value: '${game.systemLockedVault} ⭐',
               valueColor: const Color(0xFFFF7043),
-              subtext: 'Locked Funds',
+              subtext: 'Simulated vault',
             ),
           ),
 

@@ -3,6 +3,8 @@ library;
 import 'dart:math';
 import '../../models/shop/shop_models.dart';
 import '../../models/upgrade_game/telegram_gift_model.dart';
+import '../api/gateway_api_service.dart';
+import '../wallet/wallet_repository.dart';
 
 class ShopRepository {
   static final ShopRepository _instance = ShopRepository._internal();
@@ -278,6 +280,40 @@ class ShopRepository {
   }
 
   ShopPrices getPrices() => ShopPrices.standard();
+
+  /// Fetch live prices from backend
+  Future<ShopPrices> fetchLivePrices() async {
+    try {
+      final data = await GatewayApiService().getShopPrices();
+      final tonUsd = (data['tonPriceUsd'] as num?)?.toDouble() ?? 1.5;
+      final starsUsd = (data['starsPriceUsd'] as num?)?.toDouble() ?? 0.013;
+      return ShopPrices(
+        tonPerStar: starsUsd / (tonUsd > 0 ? tonUsd : 1.5),
+        starPriceUsd: starsUsd,
+        gramPriceUsd: tonUsd,
+      );
+    } catch (_) {
+      return ShopPrices.standard();
+    }
+  }
+
+  /// Purchase product from backend
+  Future<bool> purchaseDigitalProduct({
+    required String productId,
+    required String currency,
+  }) async {
+    try {
+      final res = await GatewayApiService().purchaseGeminiStoreProduct(
+        productId: productId,
+        currency: currency.toLowerCase(),
+      );
+      if (res['success'] == true) {
+        await WalletRepository().refreshBalances();
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
 
   /// Lucky Roulette reel strip & outcome generator
   LuckyRouletteOutcome generateLuckyRouletteOutcome({

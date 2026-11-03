@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:terna/core/theme/app_colors.dart';
+import 'safe_avatar_image.dart';
 
 class StoryAvatarWidget extends StatelessWidget {
   final String? assetPath;
@@ -52,21 +53,16 @@ class StoryAvatarWidget extends StatelessWidget {
           ),
         ),
       );
-    } else if (assetPath != null) {
-      avatarContent = Container(
-        width: innerAvatarSize,
-        height: innerAvatarSize,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Image.asset(
-          assetPath!,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => Container(
-            color: Colors.grey.shade300,
-            child: Icon(Icons.person, size: innerAvatarSize * 0.6, color: Colors.grey.shade600),
-          ),
+    } else if (assetPath != null && assetPath!.trim().isNotEmpty) {
+      avatarContent = SafeAvatarImage(
+        imageSource: assetPath,
+        size: innerAvatarSize,
+        shape: BoxShape.circle,
+        fallback: Container(
+          width: innerAvatarSize,
+          height: innerAvatarSize,
+          color: Colors.grey.shade300,
+          child: Icon(Icons.person, size: innerAvatarSize * 0.6, color: Colors.grey.shade600),
         ),
       );
     } else {

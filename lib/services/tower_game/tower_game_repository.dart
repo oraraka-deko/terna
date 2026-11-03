@@ -1,11 +1,14 @@
+library;
+
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import '../../models/tower_game/tower_game_models.dart';
+import '../wallet/wallet_repository.dart';
 
 class TowerGameRepository {
-  double tonBalance = 10.0; // Placeholder demo balance
-  int starsBalance = 100; // Placeholder demo balance
+  double get tonBalance => WalletRepository().tonBalance.value;
+  int get starsBalance => WalletRepository().starsBalance.value;
 
   static const int rows = 7;
   static const int cols = 5;
@@ -46,18 +49,17 @@ class TowerGameRepository {
 
   void deductBalance(TowerCurrency currency, double amount) {
     if (currency == TowerCurrency.ton) {
-      tonBalance = max(0.0, tonBalance - amount);
+      WalletRepository().debitTon(amount, 'Tower Climb Bet');
     } else {
-      starsBalance = max(0, starsBalance - amount.toInt());
+      WalletRepository().debitStars(amount.toInt(), 'Tower Climb Bet');
     }
   }
 
   void creditBalance(TowerCurrency currency, double amount) {
     if (currency == TowerCurrency.ton) {
-      tonBalance += amount;
+      WalletRepository().creditTon(amount, 'Tower Climb Payout');
     } else {
-      starsBalance += amount.toInt();
+      WalletRepository().creditStars(amount.toInt(), 'Tower Climb Payout');
     }
   }
 }
-

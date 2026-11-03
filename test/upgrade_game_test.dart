@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:terna/services/upgrade_game/upgrade_gifts_repository.dart';
 import 'package:terna/features/upgrade_game/view_models/upgrade_game_view_model.dart';
+import 'package:terna/services/wallet/wallet_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -13,16 +14,13 @@ void main() {
       repo = UpgradeGiftsRepository();
     });
 
-    test('Initial placeholder inventory contains all gifts, 10 TON, and 100 Stars', () async {
-      final inventory = await repo.loadInitialPlaceholderInventory();
+    test('User inventory uses shared wallet balances and has no demo gifts', () async {
+      final inventory = await repo.loadUserInventory();
 
-      expect(inventory.isPlaceholder, isTrue);
-      expect(inventory.tonBalance, equals(10.0));
-      expect(inventory.starsBalance, equals(100));
-      expect(inventory.gifts.isNotEmpty, isTrue);
-      for (final g in inventory.gifts) {
-        expect(g.isPlaceholder, isTrue);
-      }
+      expect(inventory.isPlaceholder, isFalse);
+      expect(inventory.tonBalance, equals(WalletRepository().tonBalance.value));
+      expect(inventory.starsBalance, equals(WalletRepository().starsBalance.value));
+      expect(inventory.gifts, isEmpty);
     });
 
     test('Rate conversions are accurate', () {
@@ -53,9 +51,9 @@ void main() {
       vm = UpgradeGameViewModel(repository: repo, vsync: vsync);
       await vm.initialize();
 
-      expect(vm.inventory.isPlaceholder, isTrue);
-      expect(vm.inventory.tonBalance, 10.0);
-      expect(vm.inventory.starsBalance, 100);
+      expect(vm.inventory.isPlaceholder, isFalse);
+      expect(vm.inventory.tonBalance, WalletRepository().tonBalance.value);
+      expect(vm.inventory.starsBalance, WalletRepository().starsBalance.value);
       expect(vm.selectedTargetGift, isNotNull);
 
       // Initially no bet placed
@@ -63,10 +61,8 @@ void main() {
       expect(vm.winChancePercent, 0.0);
       expect(vm.isValidTarget, isFalse);
 
-      // Select an inventory gift
-      final gift = vm.inventory.gifts.first;
-      vm.toggleInventoryGift(gift);
-      expect(vm.selectedInventoryGifts.length, 1);
+      // Additional Stars stake works without a fabricated inventory item.
+      vm.setAdditionalStars(10);
       expect(vm.totalBetValue, greaterThan(0.0));
 
       // With bet placed and target selected, win chance is calculated

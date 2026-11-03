@@ -4,6 +4,7 @@ import 'package:terna/models/tower_game/tower_game_models.dart';
 import 'package:terna/services/haptic.dart';
 import 'package:terna/services/tower_game/tower_audio_service.dart';
 import 'package:terna/services/tower_game/tower_game_repository.dart';
+import 'package:terna/services/api/gateway_api_service.dart';
 
 class TowerGameViewModel extends ChangeNotifier {
   final TowerGameRepository repository;
@@ -23,6 +24,7 @@ class TowerGameViewModel extends ChangeNotifier {
   int currentRow = 0; // 0 (bottom) to 6 (top)
   double currentMultiplier = 1.0;
   String? serverSeedHash;
+  String? _backendRoundId;
 
   // Visual board: 7 rows x 5 columns
   late List<List<TowerTileState>> board;
@@ -162,6 +164,17 @@ class TowerGameViewModel extends ChangeNotifier {
     isPlaying = true;
     isProcessing = false;
 
+    _backendRoundId = null;
+    GatewayApiService().startTower(
+      betAmount: betAmount,
+      currency: currency == TowerCurrency.ton ? 'ton' : 'stars',
+      difficulty: difficulty.name.toUpperCase(),
+    ).then((res) {
+      if (res['success'] == true && res['roundId'] != null) {
+        _backendRoundId = res['roundId'].toString();
+      }
+    }).catchError((_) {});
+
     TowerAudioService.playClick();
     HapticFeedbackService.lightImpact();
     notifyListeners();
@@ -172,6 +185,14 @@ class TowerGameViewModel extends ChangeNotifier {
 
     isProcessing = true;
     HapticFeedbackService.tap();
+
+    if (_backendRoundId != null) {
+      GatewayApiService().stepTower(
+        roundId: _backendRoundId!,
+        rowIndex: rowIndex,
+        tileIndex: colIndex,
+      ).catchError((_) => <String, dynamic>{});
+    }
 
     final isTrap = _secretGrid[rowIndex][colIndex] == TowerTileStatus.trap;
 
@@ -239,6 +260,10 @@ class TowerGameViewModel extends ChangeNotifier {
     isProcessing = true;
     final payout = cashoutValue;
     repository.creditBalance(currency, payout);
+
+    if (_backendRoundId != null) {
+      GatewayApiService().cashoutTower(roundId: _backendRoundId!).catchError((_) => <String, dynamic>{});
+    }
 
     TowerAudioService.playCashOut();
     HapticFeedbackService.success();

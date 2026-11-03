@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:terna/core/constants/app_assets.dart';
 import 'package:terna/core/theme/app_colors.dart';
 import '../../screens/wallet/wallet_screen.dart';
+import 'debug_balance_adjustment_screen.dart';
 import '../../widgets/chat/gamer_bio_modal.dart';
 import '../../widgets/profile/profile_inventory_widget.dart';
 import '../../widgets/profile/profile_stats_widget.dart';
+import '../../core/widgets/safe_avatar_image.dart';
+import '../../models/chat/chat_models.dart';
+import '../../services/chat/chat_service.dart';
+import '../../services/wallet/wallet_repository.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onQrTap;
@@ -43,12 +49,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
         controller: _scrollController,
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         slivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SettingsHeaderDelegate(
-              onQrTap: widget.onQrTap,
-              onEditTap: widget.onEditTap,
-            ),
+          ValueListenableBuilder<GamerBioData>(
+            valueListenable: ChatService().userBio,
+            builder: (ctx, bio, _) {
+              final wallet = WalletRepository();
+              final currentName = bio.username.isNotEmpty ? bio.username : wallet.username.value;
+              final currentAvatar = (bio.avatar != null && bio.avatar!.isNotEmpty)
+                  ? bio.avatar!
+                  : wallet.avatar.value;
+
+              return SliverPersistentHeader(
+                pinned: true,
+                delegate: _SettingsHeaderDelegate(
+                  onQrTap: widget.onQrTap,
+                  onEditTap: widget.onEditTap,
+                  username: currentName,
+                  avatar: currentAvatar,
+                ),
+              );
+            },
           ),
 
           // Inset Grouped Settings Cards
@@ -90,6 +109,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
+
+                  if (kDebugMode) ...[
+                    const SizedBox(height: 14),
+                    _buildCard(
+                      children: [
+                        _buildRow(
+                          leading: _buildSquircleIcon(
+                            color: const Color(0xFFAF52DE),
+                            icon: Icons.admin_panel_settings_rounded,
+                          ),
+                          title: 'Developer balance adjustment',
+                          showChevron: true,
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const DebugBalanceAdjustmentScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
 
                   const SizedBox(height: 14),
 
@@ -331,8 +374,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 class _SettingsHeaderDelegate extends SliverPersistentHeaderDelegate {
   final VoidCallback? onQrTap;
   final VoidCallback? onEditTap;
+  final String username;
+  final String avatar;
 
-  _SettingsHeaderDelegate({this.onQrTap, this.onEditTap});
+  _SettingsHeaderDelegate({
+    this.onQrTap,
+    this.onEditTap,
+    this.username = 'Player',
+    this.avatar = '',
+  });
 
   @override
   double get minExtent => 96.0;
@@ -390,22 +440,22 @@ class _SettingsHeaderDelegate extends SliverPersistentHeaderDelegate {
                   ),
                 ),
 
-                // Scrolled-Up Collapsed Title: "Dinosaur ★"
+                // Scrolled-Up Collapsed Title
                 if (isFullyCollapsed)
-                  const Row(
+                  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Dinosaur',
-                        style: TextStyle(
+                        username.isNotEmpty ? username : 'Player',
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                           letterSpacing: -0.3,
                         ),
                       ),
-                      SizedBox(width: 4),
-                      Text(
+                      const SizedBox(width: 4),
+                      const Text(
                         '★',
                         style: TextStyle(
                           fontSize: 14,
@@ -452,45 +502,43 @@ class _SettingsHeaderDelegate extends SliverPersistentHeaderDelegate {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Dinosaur Avatar
+                    // Live User Avatar
                     Container(
                       width: 90,
                       height: 90,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFFFFD60A),
+                        color: Colors.white.withValues(alpha: 0.15),
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
-                      padding: const EdgeInsets.all(4),
-                      child: ClipOval(
-                        child: Image.asset(
-                          AppAssets.avatarDino,
+                      child: SafeAvatarImage(
+                        imageSource: avatar.isNotEmpty ? avatar : AppAssets.avatarTravelDuckParis,
+                        size: 86,
+                        shape: BoxShape.circle,
+                        fallback: Image.asset(
+                          AppAssets.avatarTravelDuckParis,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Icon(
-                            Icons.pets,
-                            size: 48,
-                            color: Colors.white,
-                          ),
                         ),
                       ),
                     ),
 
                     const SizedBox(height: 10),
 
-                    // Dinosaur ★
-                    const Row(
+                    // User Name ★
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Dinosaur',
-                          style: TextStyle(
+                          username.isNotEmpty ? username : 'Player',
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                             letterSpacing: -0.2,
                           ),
                         ),
-                        SizedBox(width: 4),
-                        Text(
+                        const SizedBox(width: 4),
+                        const Text(
                           '★',
                           style: TextStyle(
                             fontSize: 16,
@@ -503,9 +551,9 @@ class _SettingsHeaderDelegate extends SliverPersistentHeaderDelegate {
 
                     const SizedBox(height: 3),
 
-                    // +888 888 888 • @dino
+                    // Subtitle
                     Text(
-                      '+888 888 888 • @dino',
+                      '@${username.replaceAll("@", "")} • Terna Player',
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w400,

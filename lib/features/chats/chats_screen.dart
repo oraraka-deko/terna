@@ -3,6 +3,8 @@ import 'package:terna/core/constants/app_assets.dart';
 import 'package:terna/core/theme/app_colors.dart';
 import 'package:terna/core/widgets/name_with_badges_row.dart';
 import 'package:terna/core/widgets/story_avatar_widget.dart';
+import '../../models/chat/chat_models.dart';
+import '../../services/chat/chat_service.dart';
 
 class ChatListItemData {
   final String id;
@@ -76,97 +78,62 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chatItems = [
-      const ChatListItemData(
-        id: 'live_global_chat',
-        title: '🔥 Terna Global Live Chat',
-        subtitle: '1,482 Online • Pavel Durov: Welcome to Terna!',
-        time: 'Live',
-        avatarAsset: AppAssets.avatarTravelDuckParis,
-        isPinned: true,
-        isLive: true,
-        unreadCount: 4,
-      ),
-      const ChatListItemData(
-        id: 'saved_messages',
-        title: 'Saved Messages',
-        subtitle: 'IMG_420.png',
-        time: 'Fri',
-        isPinned: true,
-        isSavedMessages: true,
-      ),
-      const ChatListItemData(
-        id: 'cat',
-        title: 'Cat',
-        subtitle: 'Pepe says hi.',
-        time: '9:41',
-        avatarAsset: AppAssets.avatarCat,
-        isPinned: true,
-        hasStar: true,
-        hasStoryRing: true,
-        isOnline: true,
-        hasReadChecks: true,
-      ),
-      const ChatListItemData(
-        id: 'pepe',
-        title: 'Pepe',
-        subtitle: 'Say hello to Cat.',
-        time: '9:41',
-        avatarAsset: AppAssets.avatarPepe,
-        hasStoryRing: true,
-        giftBadge: AppAssets.statusOther,
-        unreadCount: 1,
-      ),
-      const ChatListItemData(
-        id: '16bit_team',
-        title: '16Bit Team',
-        subtitle: '16Bit Team started a Live Stream',
-        time: '9:41',
-        avatarAsset: AppAssets.avatarTravelDuckParis,
-        isLive: true,
-        isMuted: true,
-        unreadCount: 1,
-        isUnreadMuted: true,
-      ),
-      const ChatListItemData(
-        id: 'digital_nomads',
-        title: 'Digital Nomads',
-        senderName: 'Pepe',
-        subtitle: 'We just reached 2,500 members! WOO!',
-        time: '9:22',
-        avatarAsset: AppAssets.avatarDino,
-        isMuted: true,
-      ),
-      const ChatListItemData(
-        id: 'dog',
-        title: 'Dog',
-        subtitle: 'Table for four, 2 PM be there',
-        time: '9:12',
-        avatarAsset: AppAssets.avatarDog,
-        hasStoryRing: true,
-        giftBadge: AppAssets.giftSampleBadge,
-      ),
-      const ChatListItemData(
-        id: 'penguin',
-        title: 'Penguin',
-        subtitle: 'Check these out!',
-        time: '8:28',
-        avatarAsset: AppAssets.avatarPenguin,
-        unreadCount: 1,
-      ),
-      const ChatListItemData(
-        id: 'wallet',
-        title: 'Wallet',
-        subtitle: 'Welcome to Crypto Wallet!\n...',
-        time: '8:12',
-        isWallet: true,
-        isVerified: true,
-        hasReadChecks: true,
-        unreadCount: 1,
-      ),
-    ];
+    final chatService = ChatService();
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        chatService.friends,
+        chatService.globalMessages,
+        chatService.directMessages,
+      ]),
+      builder: (context, _) {
+        final globalMsg = chatService.globalMessages.value.isNotEmpty
+            ? chatService.globalMessages.value.last
+            : null;
+        final globalSubtitle = globalMsg != null
+            ? '${globalMsg.senderName}: ${globalMsg.text}'
+            : 'Live chat with players across the world';
 
-    return Scaffold(
+        final chatItems = <ChatListItemData>[
+          ChatListItemData(
+            id: 'live_global_chat',
+            title: '🔥 Terna Global Live Chat',
+            subtitle: globalSubtitle,
+            time: globalMsg != null ? globalMsg.time : 'Live',
+            avatarAsset: AppAssets.avatarTravelDuckParis,
+            isPinned: true,
+            isLive: true,
+            unreadCount: chatService.globalMessages.value.isNotEmpty ? 1 : 0,
+          ),
+          const ChatListItemData(
+            id: 'saved_messages',
+            title: 'Saved Messages',
+            subtitle: 'Personal cloud notebook',
+            time: 'Saved',
+            isPinned: true,
+            isSavedMessages: true,
+          ),
+        ];
+
+        // Add real friends direct chats
+        for (final friend in chatService.friends.value) {
+          if (friend.status == FriendStatus.accepted) {
+            final dms = chatService.directMessages.value[friend.friendId] ?? [];
+            final lastDm = dms.isNotEmpty ? dms.last : null;
+            chatItems.add(
+              ChatListItemData(
+                id: friend.friendId,
+                title: friend.friendUsername,
+                subtitle: lastDm != null ? lastDm.text : 'Tap to chat with ${friend.friendUsername}',
+                time: lastDm != null ? lastDm.time : '',
+                avatarAsset: friend.friendAvatar,
+                isOnline: friend.isOnline,
+                hasReadChecks: lastDm != null && lastDm.isOutgoing,
+              ),
+            );
+          }
+        }
+
+        return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
@@ -352,6 +319,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
           ),
         ],
       ),
+    );
+      },
     );
   }
 

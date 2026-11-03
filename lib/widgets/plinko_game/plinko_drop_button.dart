@@ -21,7 +21,7 @@ class PlinkoDropButton extends StatelessWidget {
     return SizedBox(
       height: 52,
       child: ElevatedButton(
-        onPressed: () => viewModel.dropBall(),
+        onPressed: viewModel.isDropping ? null : () => viewModel.dropBall(),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFCCFF00),
           foregroundColor: Colors.black,
@@ -34,10 +34,23 @@ class PlinkoDropButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.auto_awesome_rounded, color: Colors.black, size: 18),
+            if (viewModel.isDropping)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.black,
+                ),
+              )
+            else
+              const Icon(Icons.auto_awesome_rounded,
+                  color: Colors.black, size: 18),
             const SizedBox(width: 8),
             Text(
-              'DROP BALL ($amountFormatted $currencySymbol)',
+              viewModel.isDropping
+                  ? 'SUBMITTING BET...'
+                  : 'DROP BALL ($amountFormatted $currencySymbol)',
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: 13.5,
@@ -51,4 +64,3 @@ class PlinkoDropButton extends StatelessWidget {
     );
   }
 }
-

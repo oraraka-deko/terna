@@ -1,38 +1,34 @@
-import 'dart:math';
+library;
+
 import '../../models/plinko_game/plinko_models.dart';
+import '../api/gateway_api_service.dart';
+import '../wallet/wallet_repository.dart';
 
 class PlinkoGameRepository {
-  /// FLAG: isPlaceholder marks simulated demo wallet balances
-  static const bool isPlaceholder = true;
-
-  double tonBalance = 10.0; // PLACEHOLDER: 10 TON demo balance
-  int starsBalance = 100; // PLACEHOLDER: 100 Stars demo balance
+  double get tonBalance => WalletRepository().tonBalance.value;
+  int get starsBalance => WalletRepository().starsBalance.value;
 
   static const int rows = 12; // 12 tiers = 13 landing buckets
   static const int bucketCount = 13;
 
-  /// Generate deterministic binary path (0 = left, 1 = right) for 12 peg tiers
-  List<int> generatePath() {
-    final random = Random();
-    return List.generate(rows, (_) => random.nextBool() ? 1 : 0);
-  }
-
-  /// Deduct bet from balance
-  void deductBalance(PlinkoCurrency currency, double amount) {
-    if (currency == PlinkoCurrency.ton) {
-      tonBalance = max(0.0, double.parse((tonBalance - amount).toStringAsFixed(4)));
-    } else {
-      starsBalance = max(0, starsBalance - amount.toInt());
+  /// Request provably fair ball drop from backend
+  Future<Map<String, dynamic>> requestDropFromBackend({
+    required double betAmount,
+    required PlinkoCurrency currency,
+    required PlinkoRisk risk,
+  }) async {
+    final result = await GatewayApiService().dropPlinko(
+      betAmount: betAmount,
+      currency: currency.name.toLowerCase(),
+      risk: risk.name.toLowerCase(),
+      rows: rows,
+    );
+    if (result['success'] != true) {
+      throw StateError(
+        result['error']?.toString() ?? 'The backend rejected the Plinko drop.',
+      );
     }
-  }
-
-  /// Credit payout to balance
-  void creditBalance(PlinkoCurrency currency, double payout) {
-    if (currency == PlinkoCurrency.ton) {
-      tonBalance = double.parse((tonBalance + payout).toStringAsFixed(4));
-    } else {
-      starsBalance = starsBalance + payout.toInt();
-    }
+    await WalletRepository().refreshBalances();
+    return result;
   }
 }
-
