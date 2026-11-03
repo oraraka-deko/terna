@@ -99,6 +99,7 @@ flutter:
     - assets/cards/
     - assets/cards/white/
     - assets/cards/black/
+    - assets/shop/geministore_reseller/
     # - flutter_scene_generated/
     # - path: flutter_scene_generated/metal_ios/
     #   platforms:

@@ -5,6 +5,9 @@ import 'package:terna/screens/games/plinko_game_screen.dart';
 import 'package:terna/screens/games/territory_game_screen.dart';
 import 'package:terna/screens/gift_shop/gift_shop_screen.dart';
 import 'package:terna/screens/games/higher_lower_game_screen.dart';
+import 'package:terna/screens/shop/shop_screen.dart';
+import 'package:terna/screens/inventory/inventory_screen.dart';
+import 'package:terna/screens/wallet/wallet_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_telegram_miniapp/flutter_telegram_miniapp.dart';
 import 'package:terna/screens/games/american_roulette_game.dart';
@@ -408,6 +411,102 @@ class _AppDrawerScreenState extends State<AppDrawerScreen> {
           ),
         ),
         screen: const HigherLowerGameScreen(),
+      ),
+      AppItem(
+        name: 'Shop',
+        hasDot: true,
+        iconWidget: Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0F3B37), Color(0xFF0D121F)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: const Color(0xFF2DD4BF), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2DD4BF).withValues(alpha: 0.35),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.storefront_rounded,
+              color: Color(0xFF2DD4BF),
+              size: 30,
+            ),
+          ),
+        ),
+        screen: const ShopScreen(),
+      ),
+      AppItem(
+        name: 'Inventory',
+        hasDot: true,
+        iconWidget: Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2E1065), Color(0xFF0F172A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: const Color(0xFFA855F7), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFA855F7).withValues(alpha: 0.35),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.inventory_2_rounded,
+              color: Color(0xFFC084FC),
+              size: 30,
+            ),
+          ),
+        ),
+        screen: const InventoryScreen(),
+      ),
+      AppItem(
+        name: 'Wallet',
+        hasDot: true,
+        iconWidget: Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF062E25), Color(0xFF051714)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: const Color(0xFF10B981), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.account_balance_wallet_rounded,
+              color: Color(0xFF10B981),
+              size: 30,
+            ),
+          ),
+        ),
+        screen: const WalletScreen(),
       ),
       AppItem(
         name: 'YouTube',

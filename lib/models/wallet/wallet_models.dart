@@ -120,3 +120,55 @@ class StarsPaidResult {
   }
 }
 
+/// Ledger transaction model matching area_game
+class WalletTransaction {
+  final String id;
+  final String type; // 'DEPOSIT', 'WITHDRAWAL', 'PURCHASE', 'SELL_BACK', 'GAME_WIN'
+  final String currency; // 'TON', 'STARS'
+  final double amount;
+  final String status; // 'CONFIRMED', 'PENDING', 'FAILED'
+  final DateTime timestamp;
+  final String description;
+  final String? txHash;
+
+  const WalletTransaction({
+    required this.id,
+    required this.type,
+    required this.currency,
+    required this.amount,
+    this.status = 'CONFIRMED',
+    required this.timestamp,
+    required this.description,
+    this.txHash,
+  });
+
+  factory WalletTransaction.fromJson(Map<String, dynamic> json) {
+    return WalletTransaction(
+      id: json['id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'DEPOSIT',
+      currency: json['currency']?.toString() ?? 'TON',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      status: json['status']?.toString() ?? 'CONFIRMED',
+      timestamp: json['timestamp'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(
+              (json['timestamp'] as num).toInt() > 1000000000000
+                  ? (json['timestamp'] as num).toInt()
+                  : (json['timestamp'] as num).toInt() * 1000)
+          : DateTime.now(),
+      description: json['description']?.toString() ?? '',
+      txHash: json['txHash']?.toString() ?? json['tx_hash']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'type': type,
+        'currency': currency,
+        'amount': amount,
+        'status': status,
+        'timestamp': timestamp.millisecondsSinceEpoch,
+        'description': description,
+        'txHash': txHash,
+      };
+}
+
