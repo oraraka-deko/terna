@@ -54,6 +54,9 @@ Future<void> main()async {
     webApp.ready();
     webApp.expand();
     webApp.enableClosingConfirmation(); // Prompts user before closing
+    webApp.requestFullscreen();
+    webApp.disableVerticalSwipes();
+    
   } catch (e) {
     debugPrint('Running outside Telegram WebView: $e');
   }

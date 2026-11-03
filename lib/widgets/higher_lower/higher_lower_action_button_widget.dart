@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../models/higher_lower/higher_lower_models.dart';
 
-/// Primary action button at the bottom of the screen:
-/// - "Start game ✦ 1"
-/// - "Collect ⚡ 1.26"
-/// - "Play again ✦ 1"
+/// Primary action button at the bottom of the screen matching screenshots:
+/// - "Start game  ✦ 1"
+/// - "Collect  ⚡ 1.26"
+/// - "Play again  ✦ 1"
+/// With bottom footer: "Wins: 0" (left) and "Playing with Stars · switch wallet ↑" (center).
 class HigherLowerActionButtonWidget extends StatelessWidget {
   final HigherLowerRoundState state;
   final double betAmount;
@@ -14,6 +15,7 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
   final VoidCallback onStartGame;
   final VoidCallback onCollect;
   final VoidCallback onPlayAgain;
+  final VoidCallback? onSwitchWallet;
 
   const HigherLowerActionButtonWidget({
     super.key,
@@ -25,19 +27,19 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
     required this.onStartGame,
     required this.onCollect,
     required this.onPlayAgain,
+    this.onSwitchWallet,
   });
 
   @override
   Widget build(BuildContext context) {
-    final currencySymbol = currency == HigherLowerCurrency.stars ? '⭐' : 'TON';
-
     Widget button;
     switch (state) {
       case HigherLowerRoundState.idle:
         button = _buildButton(
           title: 'Start game',
+          accentIcon: currency == HigherLowerCurrency.stars ? '✦' : '💎',
           accentText: currency == HigherLowerCurrency.stars
-              ? '${betAmount.round()} ⭐'
+              ? '${betAmount.round()}'
               : '$betAmount TON',
           color: const Color(0xFF22C55E),
           textColor: Colors.white,
@@ -48,7 +50,10 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
       case HigherLowerRoundState.correct:
         button = _buildButton(
           title: 'Collect',
-          accentText: '$potentialPayout $currencySymbol',
+          accentIcon: currency == HigherLowerCurrency.stars ? '⚡' : '💎',
+          accentText: currency == HigherLowerCurrency.stars
+              ? '${potentialPayout.round()}'
+              : '$potentialPayout TON',
           color: const Color(0xFF22C55E),
           textColor: Colors.white,
           onTap: onCollect,
@@ -58,8 +63,9 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
       case HigherLowerRoundState.wrong:
         button = _buildButton(
           title: 'Play again',
+          accentIcon: currency == HigherLowerCurrency.stars ? '✦' : '💎',
           accentText: currency == HigherLowerCurrency.stars
-              ? '${betAmount.round()} ⭐'
+              ? '${betAmount.round()}'
               : '$betAmount TON',
           color: const Color(0xFF22C55E),
           textColor: Colors.white,
@@ -70,8 +76,9 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
       case HigherLowerRoundState.collected:
         button = _buildButton(
           title: 'Play again',
+          accentIcon: currency == HigherLowerCurrency.stars ? '✦' : '💎',
           accentText: currency == HigherLowerCurrency.stars
-              ? '${betAmount.round()} ⭐'
+              ? '${betAmount.round()}'
               : '$betAmount TON',
           color: const Color(0xFF22C55E),
           textColor: Colors.white,
@@ -82,7 +89,12 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
       case HigherLowerRoundState.playing:
         button = _buildButton(
           title: 'Collect',
-          accentText: wins > 0 ? '$potentialPayout $currencySymbol' : null,
+          accentIcon: wins > 0 ? (currency == HigherLowerCurrency.stars ? '⚡' : '💎') : null,
+          accentText: wins > 0
+              ? (currency == HigherLowerCurrency.stars
+                  ? '${potentialPayout.round()}'
+                  : '$potentialPayout TON')
+              : null,
           color: wins > 0 ? const Color(0xFF22C55E) : const Color(0xFF282C37),
           textColor: wins > 0 ? Colors.white : Colors.white38,
           onTap: wins > 0 ? onCollect : () {},
@@ -96,13 +108,35 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           button,
-          const SizedBox(height: 6),
-          Text(
-            'Wins: $wins',
-            style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+          const SizedBox(height: 8),
+
+          // Bottom footer row matching screenshots
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Wins: $wins',
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: onSwitchWallet,
+                  child: Text(
+                    'Playing with ${currency == HigherLowerCurrency.stars ? "Stars" : "TON"} · switch wallet ↑',
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 32), // balance spacer
+              ],
             ),
           ),
         ],
@@ -112,6 +146,7 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
 
   Widget _buildButton({
     required String title,
+    String? accentIcon,
     String? accentText,
     required Color color,
     required Color textColor,
@@ -147,20 +182,22 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
             ),
             if (accentText != null) ...[
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  accentText,
+              if (accentIcon != null) ...[
+                Text(
+                  accentIcon,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    color: Color(0xFFFDE047),
                   ),
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                accentText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ],
@@ -170,4 +207,3 @@ class HigherLowerActionButtonWidget extends StatelessWidget {
     );
   }
 }
-

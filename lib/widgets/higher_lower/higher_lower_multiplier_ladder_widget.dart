@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Floating ladder pills to the right of the active card:
+/// Floating ladder pills to the right of the active card matching screenshots:
 /// - [^ ×Higher]
-/// - [Now ×Current]
+/// - [Now (×Current)]
 /// - [v ×Lower / Skip]
 class HigherLowerMultiplierLadderWidget extends StatelessWidget {
   final double higherMultiplier;
@@ -24,6 +24,8 @@ class HigherLowerMultiplierLadderWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showSkip = isEdgeCard && !canCallLower;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,17 +41,17 @@ class HigherLowerMultiplierLadderWidget extends StatelessWidget {
         // Middle Pill: Current active multiplier ("Now")
         _buildPill(
           prefix: 'Now',
-          text: '×${currentMultiplier.toStringAsFixed(2)}',
+          text: currentMultiplier > 1.0 ? '×${currentMultiplier.toStringAsFixed(2)}' : '',
           isGold: true,
         ),
         const SizedBox(height: 6),
 
         // Bottom Pill: Lower projected multiplier
         _buildPill(
-          icon: Icons.keyboard_arrow_down_rounded,
+          icon: showSkip ? Icons.skip_next_rounded : Icons.keyboard_arrow_down_rounded,
           text: canCallLower
               ? '×${lowerMultiplier.toStringAsFixed(2)}'
-              : (isEdgeCard ? 'Skip' : '—'),
+              : (showSkip ? 'Skip' : '—'),
           isGold: false,
         ),
       ],
@@ -78,8 +80,8 @@ class HigherLowerMultiplierLadderWidget extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: isGold
-                ? const Color(0xFFEAB308).withValues(alpha: 0.4)
-                : Colors.black.withValues(alpha: 0.3),
+              ? const Color(0xFFEAB308).withValues(alpha: 0.4)
+              : Colors.black.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -100,25 +102,25 @@ class HigherLowerMultiplierLadderWidget extends StatelessWidget {
             Text(
               prefix,
               style: TextStyle(
-                color: isGold ? Colors.black87 : Colors.white70,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
+                color: isGold ? const Color(0xFF78350F) : Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(width: 4),
+            if (text.isNotEmpty) const SizedBox(width: 4),
           ],
-          Text(
-            text,
-            style: TextStyle(
-              color: isGold ? Colors.black : Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              fontFamily: 'monospace',
+          if (text.isNotEmpty)
+            Text(
+              text,
+              style: TextStyle(
+                color: isGold ? const Color(0xFF78350F) : Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                fontFamily: 'monospace',
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 }
-

@@ -76,6 +76,7 @@ class _HigherLowerGameScreenState extends State<HigherLowerGameScreen> {
                 children: [
                   // Top Header
                   HigherLowerHeaderWidget(
+                    deckCount: _viewModel.remainingCardsCount,
                     historyCount: _viewModel.drawnHistory.length,
                     onBack: () => Navigator.of(context).maybePop(),
                     onShowRules: () => HigherLowerRulesDialog.show(context),
@@ -155,6 +156,13 @@ class _HigherLowerGameScreenState extends State<HigherLowerGameScreen> {
                           onStartGame: _handleStartGame,
                           onCollect: _viewModel.collect,
                           onPlayAgain: _viewModel.playAgain,
+                          onSwitchWallet: () {
+                            _viewModel.setCurrency(
+                              _viewModel.currency == HigherLowerCurrency.stars
+                                  ? HigherLowerCurrency.ton
+                                  : HigherLowerCurrency.stars,
+                            );
+                          },
                         ),
                       ],
                     ),

@@ -41,6 +41,9 @@ dependencies:
   flutter_soloud: ^3.5.4
   flutter_telegram_miniapp: ^0.1.2
   crypto: ^3.0.8
+  http: ^1.6.0
+  ton_connect: ^0.1.0
+  ton_connect_ui: ^0.1.0
 
 dev_dependencies:
   flutter_test:

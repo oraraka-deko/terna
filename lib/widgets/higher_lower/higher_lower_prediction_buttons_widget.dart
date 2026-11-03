@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/higher_lower/higher_lower_models.dart';
 
-/// Prediction Call Buttons:
-/// [ Higher  ×1.26 ]   [ (v) Lower  ×3.80 / (>|) Skip ]
+/// Prediction Call Buttons matching screenshots:
+/// [ Higher        ]   [ (v) Lower      ]
+/// [ ×1.26         ]   [ ×3.80 / Skip   ]
 class HigherLowerPredictionButtonsWidget extends StatelessWidget {
   final bool isInteractive;
   final bool canCallHigher;
@@ -25,38 +26,29 @@ class HigherLowerPredictionButtonsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showSkip = isEdgeCard && !canCallLower;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // HIGHER Button
+          // HIGHER Button (no leading icon, bold text + multiplier below)
           Expanded(
-            child: _buildPredictButton(
-              title: 'Higher',
-              subtitle: canCallHigher ? '×${higherMultiplier.toStringAsFixed(2)}' : '—',
-              icon: Icons.keyboard_arrow_up_rounded,
-              iconColor: const Color(0xFF22C55E),
+            child: _buildHigherButton(
               isEnabled: isInteractive && canCallHigher,
+              multiplier: canCallHigher ? '×${higherMultiplier.toStringAsFixed(2)}' : '—',
               onTap: () => onCall(PredictionType.higher),
             ),
           ),
           const SizedBox(width: 12),
 
-          // LOWER or SKIP Button
+          // LOWER or SKIP Button (with circular icon badge)
           Expanded(
-            child: _buildPredictButton(
-              title: isEdgeCard && !canCallLower ? 'Skip' : 'Lower',
-              subtitle: canCallLower
-                  ? '×${lowerMultiplier.toStringAsFixed(2)}'
-                  : (isEdgeCard ? '—' : '—'),
-              icon: isEdgeCard && !canCallLower
-                  ? Icons.skip_next_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              iconColor: const Color(0xFFEF4444),
-              isEnabled: isInteractive && (canCallLower || isEdgeCard),
-              onTap: () => onCall(
-                isEdgeCard && !canCallLower ? PredictionType.skip : PredictionType.lower,
-              ),
+            child: _buildLowerOrSkipButton(
+              isSkip: showSkip,
+              isEnabled: isInteractive && (canCallLower || showSkip),
+              subtitle: canCallLower ? '×${lowerMultiplier.toStringAsFixed(2)}' : '—',
+              onTap: () => onCall(showSkip ? PredictionType.skip : PredictionType.lower),
             ),
           ),
         ],
@@ -64,12 +56,9 @@ class HigherLowerPredictionButtonsWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildPredictButton({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
+  Widget _buildHigherButton({
     required bool isEnabled,
+    required String multiplier,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -77,7 +66,70 @@ class HigherLowerPredictionButtonsWidget extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        decoration: BoxDecoration(
+          color: isEnabled ? const Color(0xFFFFFBEB) : const Color(0xFF232634),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isEnabled
+                ? Colors.white.withValues(alpha: 0.9)
+                : Colors.white.withValues(alpha: 0.06),
+            width: 1.5,
+          ),
+          boxShadow: isEnabled
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Higher',
+              style: TextStyle(
+                color: isEnabled ? const Color(0xFF1E293B) : Colors.white38,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              multiplier,
+              style: TextStyle(
+                color: isEnabled ? const Color(0xFF15803D) : Colors.white24,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLowerOrSkipButton({
+    required bool isSkip,
+    required bool isEnabled,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final title = isSkip ? 'Skip' : 'Lower';
+    final badgeColor = isSkip ? const Color(0xFF3B82F6) : const Color(0xFFB91C1C);
+    final badgeIcon = isSkip ? Icons.skip_next_rounded : Icons.keyboard_arrow_down_rounded;
+
+    return GestureDetector(
+      onTap: isEnabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: isEnabled ? const Color(0xFFFFFBEB) : const Color(0xFF232634),
           borderRadius: BorderRadius.circular(16),
@@ -99,27 +151,25 @@ class HigherLowerPredictionButtonsWidget extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Circular icon badge
+            // Circular icon badge matching screenshot
             Container(
-              width: 28,
-              height: 28,
+              width: 26,
+              height: 26,
               decoration: BoxDecoration(
-                color: isEnabled
-                    ? iconColor.withValues(alpha: 0.15)
-                    : Colors.white.withValues(alpha: 0.05),
+                color: isEnabled ? badgeColor : Colors.white.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
               child: Center(
                 child: Icon(
-                  icon,
-                  size: 18,
-                  color: isEnabled ? iconColor : Colors.white30,
+                  badgeIcon,
+                  size: 17,
+                  color: isEnabled ? Colors.white : Colors.white30,
                 ),
               ),
             ),
             const SizedBox(width: 8),
 
-            // Texts
+            // Title & Subtitle column
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,14 +183,11 @@ class HigherLowerPredictionButtonsWidget extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
+                  const SizedBox(height: 1),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: isEnabled
-                          ? (title == 'Higher'
-                              ? const Color(0xFF15803D)
-                              : const Color(0xFFB91C1C))
-                          : Colors.white24,
+                      color: isEnabled ? badgeColor : Colors.white24,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       fontFamily: 'monospace',
@@ -155,4 +202,3 @@ class HigherLowerPredictionButtonsWidget extends StatelessWidget {
     );
   }
 }
-

@@ -1,0 +1,16 @@
+name = "terna-frontend"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# Serves Flutter's compiled build/web directory from the edge
+assets = { directory = "../../build/web", binding = "ASSETS" }
+
+# 0ms Internal Service Binding to the Gateway Worker
+[[services]]
+binding = "GATEWAY"
+service = "terna-gateway"
+
+# Optional R2 binding for heavy .tgs / .webp gift assets
+[[r2_buckets]]
+binding = "GIFT_ASSETS"
+bucket_name = "terna-gifts-cdn"

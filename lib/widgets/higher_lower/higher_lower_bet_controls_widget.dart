@@ -23,141 +23,109 @@ class HigherLowerBetControlsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencySymbol = currency == HigherLowerCurrency.stars ? '⭐' : 'TON';
+    final currencySymbol = currency == HigherLowerCurrency.stars ? 'Stars' : 'TON';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          Row(
-            children: [
-              // Bet Box
-              Expanded(
-                child: GestureDetector(
-                  onTap: isInteractive ? () => _showBetModal(context) : null,
-                  child: Container(
-                    height: 44,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1B161B).withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          // Bet Box
+          Expanded(
+            child: GestureDetector(
+              onTap: isInteractive ? () => _showBetModal(context) : null,
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B161B).withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Bet',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Row(
                       children: [
-                        const Text(
-                          'Bet',
+                        Text(
+                          currency == HigherLowerCurrency.stars ? '✦' : '💎',
                           style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: currency == HigherLowerCurrency.stars
+                                ? const Color(0xFFFBBF24)
+                                : const Color(0xFF38BDF8),
                           ),
                         ),
-                        Row(
-                          children: [
-                            Icon(
-                              currency == HigherLowerCurrency.stars
-                                  ? Icons.star_rounded
-                                  : Icons.diamond_rounded,
-                              size: 14,
-                              color: currency == HigherLowerCurrency.stars
-                                  ? const Color(0xFFFBBF24)
-                                  : const Color(0xFF38BDF8),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              currency == HigherLowerCurrency.stars
-                                  ? '${betAmount.round()}'
-                                  : betAmount.toStringAsFixed(2),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            if (isInteractive) ...[
-                              const SizedBox(width: 4),
-                              const Icon(Icons.arrow_drop_down, color: Colors.white38, size: 16),
-                            ],
-                          ],
+                        const SizedBox(width: 4),
+                        Text(
+                          currency == HigherLowerCurrency.stars
+                              ? '${betAmount.round()}'
+                              : betAmount.toStringAsFixed(2),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
+                        if (isInteractive) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.arrow_drop_down, color: Colors.white38, size: 16),
+                        ],
                       ],
                     ),
-                  ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
+            ),
+          ),
+          const SizedBox(width: 10),
 
-              // Max Win Box
-              Expanded(
-                child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B161B).withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          // Max Win Box
+          Expanded(
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B161B).withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Max win',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Row(
                     children: [
-                      const Text(
-                        'Max win',
-                        style: TextStyle(
-                          color: Colors.white54,
+                      const Icon(Icons.bolt_rounded, size: 14, color: Color(0xFF38BDF8)),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${maxWin.toStringAsFixed(currency == HigherLowerCurrency.stars ? 0 : 1)} $currencySymbol',
+                        style: const TextStyle(
+                          color: Color(0xFF38BDF8),
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                      Row(
-                        children: [
-                          const Icon(Icons.bolt_rounded, size: 14, color: Color(0xFF38BDF8)),
-                          const SizedBox(width: 2),
-                          Text(
-                            '${maxWin.toStringAsFixed(currency == HigherLowerCurrency.stars ? 0 : 1)} $currencySymbol',
-                            style: const TextStyle(
-                              color: Color(0xFF38BDF8),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 6),
-
-          // Switch Wallet link
-          if (isInteractive)
-            GestureDetector(
-              onTap: () {
-                onCurrencyChanged(
-                  currency == HigherLowerCurrency.stars
-                      ? HigherLowerCurrency.ton
-                      : HigherLowerCurrency.stars,
-                );
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Playing with ${currency == HigherLowerCurrency.stars ? "Stars" : "TON"} · switch wallet ↑',
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
                 ],
               ),
             ),
+          ),
         ],
       ),
     );
@@ -212,4 +180,3 @@ class HigherLowerBetControlsWidget extends StatelessWidget {
     );
   }
 }
-

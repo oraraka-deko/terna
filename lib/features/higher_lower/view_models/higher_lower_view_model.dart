@@ -28,6 +28,8 @@ class HigherLowerViewModel extends ChangeNotifier {
   int _totalWins = 0;
   int get totalWins => _totalWins;
 
+  int get remainingCardsCount => _deck.isEmpty ? 52 : _deck.length;
+
   double _currentMultiplier = 1.0;
   double get currentMultiplier => _currentMultiplier;
 

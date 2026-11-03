@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
 
-/// Top bar with back button, "Higher or Lower ⓘ" pill, and round history button.
+/// Top bar matching screenshots:
+/// - Left: [ 4 v ] pill showing remaining deck cards with dropdown arrow
+/// - Center: [ 🎴 Higher or Lower ⓘ ] title and rules pill
+/// - Right: ( ⟲ count ) circular drawn history button
 class HigherLowerHeaderWidget extends StatelessWidget {
+  final int deckCount;
   final int historyCount;
   final VoidCallback onBack;
   final VoidCallback onShowRules;
   final VoidCallback onShowHistory;
+  final VoidCallback? onShowDeckStats;
 
   const HigherLowerHeaderWidget({
     super.key,
+    this.deckCount = 51,
     required this.historyCount,
     required this.onBack,
     required this.onShowRules,
     required this.onShowHistory,
+    this.onShowDeckStats,
   });
 
   @override
@@ -22,22 +29,45 @@ class HigherLowerHeaderWidget extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Back button
-          IconButton(
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            tooltip: 'Back',
+          // Left: Deck count dropdown pill [ 4 v ]
+          GestureDetector(
+            onTap: onShowDeckStats ?? onBack,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B2234),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$deckCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Colors.white54,
+                    size: 14,
+                  ),
+                ],
+              ),
+            ),
           ),
 
-          // Title & Rules Pill
+          // Center: Title & Rules Pill [ 🎴 Higher or Lower ⓘ ]
           GestureDetector(
             onTap: onShowRules,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withValues(alpha: 0.8),
+                color: const Color(0xFF1B2234),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
@@ -69,14 +99,14 @@ class HigherLowerHeaderWidget extends StatelessWidget {
             ),
           ),
 
-          // History Count Button
+          // Right: ( ⟲ count ) Circular History Button
           GestureDetector(
             onTap: onShowHistory,
             child: Container(
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B).withValues(alpha: 0.8),
+                color: const Color(0xFF1B2234),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               ),
@@ -84,16 +114,16 @@ class HigherLowerHeaderWidget extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   const Icon(
-                    Icons.history_rounded,
+                    Icons.replay_rounded,
                     color: Colors.white70,
-                    size: 20,
+                    size: 18,
                   ),
                   if (historyCount > 0)
                     Positioned(
                       top: 4,
                       right: 4,
                       child: Container(
-                        padding: const EdgeInsets.all(3),
+                        padding: const EdgeInsets.all(2.5),
                         decoration: const BoxDecoration(
                           color: Color(0xFF38BDF8),
                           shape: BoxShape.circle,
@@ -117,4 +147,3 @@ class HigherLowerHeaderWidget extends StatelessWidget {
     );
   }
 }
-

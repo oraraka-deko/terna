@@ -1,0 +1,48 @@
+name = "terna-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+[vars]
+ENVIRONMENT = "production"
+TONCENTER_NETWORK = "mainnet"
+TONCENTER_BASE_URL = "https://toncenter.com/api/v2"
+DEFAULT_TON_TREASURY_ADDRESS = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA_xxx"
+# Secrets to configure via `wrangler secret put <NAME>`:
+# - TELEGRAM_BOT_TOKEN   : Bot token from @BotFather for Stars invoice creation & webhooks
+# - TONCENTER_API_KEY    : API key from toncenter.com for on-chain block & transaction verification
+# - TON_TREASURY_ADDRESS : Secret override for hot wallet address (or configure in D1 system_config)
+
+[[durable_objects.bindings]]
+name = "USER_VAULT"
+class_name = "UserVaultDO"
+
+[[durable_objects.bindings]]
+name = "TERRITORY_ROOM"
+class_name = "TerritoryRoomDO"
+
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoomDO"
+
+[[d1_databases]]
+binding = "GLOBAL_DB"
+database_name = "terna-global"
+database_id = "924315ec-1758-4859-9c57-cf98a9e82ebd"
+
+[[queues.producers]]
+binding = "AUDIT_QUEUE"
+queue = "terna-audit-queue"
+
+[[queues.consumers]]
+queue = "terna-audit-queue"
+max_batch_size = 50
+max_batch_timeout = 5
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["UserVaultDO", "TerritoryRoomDO"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["ChatRoomDO"]
