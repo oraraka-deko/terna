@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:terna/core/constants/app_assets.dart';
 import 'package:terna/core/theme/app_colors.dart';
+import '../../screens/wallet/wallet_screen.dart';
+import '../../widgets/chat/gamer_bio_modal.dart';
+import '../../widgets/profile/profile_inventory_widget.dart';
+import '../../widgets/profile/profile_stats_widget.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onQrTap;
@@ -54,6 +58,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 16),
+
+                  // Gaming Performance Stats Card (from area_game profile)
+                  const ProfileStatsWidget(),
+
+                  const SizedBox(height: 14),
+
+                  // Inventory & Collectibles Showcase Box (from area_game profile)
+                  const ProfileInventoryWidget(),
+
+                  const SizedBox(height: 14),
+
+                  // Gamer Bio & Play Style Row
+                  _buildCard(
+                    children: [
+                      _buildRow(
+                        leading: _buildSquircleIcon(
+                          color: const Color(0xFF9C27B0),
+                          icon: Icons.sports_esports_rounded,
+                        ),
+                        title: 'Gamer Bio & Play Style',
+                        trailingText: 'Tactical Striker 🎯',
+                        showChevron: true,
+                        onTap: () {
+                          GamerBioModal.show(
+                            context: context,
+                            userId: 'terna_player_me',
+                            defaultUsername: '@terna_player',
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 14),
 
                   // Card 1: Set Emoji Status & Change Profile Photo
                   _buildCard(
@@ -112,9 +150,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: const Color(0xFF007AFF),
                           icon: Icons.account_balance_wallet_rounded,
                         ),
-                        title: 'Wallet',
+                        title: 'Wallet & TON Assets',
                         showChevron: true,
-                        onTap: widget.onWalletTap,
+                        onTap: widget.onWalletTap ?? () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const WalletScreen()),
+                          );
+                        },
                       ),
                     ],
                   ),

@@ -78,6 +78,16 @@ class _ChatsScreenState extends State<ChatsScreen> {
   Widget build(BuildContext context) {
     final chatItems = [
       const ChatListItemData(
+        id: 'live_global_chat',
+        title: '🔥 Terna Global Live Chat',
+        subtitle: '1,482 Online • Pavel Durov: Welcome to Terna!',
+        time: 'Live',
+        avatarAsset: AppAssets.avatarTravelDuckParis,
+        isPinned: true,
+        isLive: true,
+        unreadCount: 4,
+      ),
+      const ChatListItemData(
         id: 'saved_messages',
         title: 'Saved Messages',
         subtitle: 'IMG_420.png',

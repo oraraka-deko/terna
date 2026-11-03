@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:terna/core/constants/app_assets.dart';
 import 'package:terna/core/theme/app_colors.dart';
 import 'package:terna/core/widgets/story_avatar_widget.dart';
+import '../../widgets/profile/profile_inventory_widget.dart';
+import '../../widgets/profile/profile_stats_widget.dart';
 
 enum ProfileType { personal, channel }
 
@@ -298,7 +300,22 @@ class _ProfileInfoScreenState extends State<ProfileInfoScreen> {
             ),
           ),
 
-          // 3. Media Grid
+          // 3. Dynamic Tab Content (Stats on Posts, Showcase on Gifts, Media on Media)
+          if (_selectedTabIndex == 0) ...[
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: ProfileStatsWidget(),
+              ),
+            ),
+          ] else if (_selectedTabIndex == 1) ...[
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: ProfileInventoryWidget(),
+              ),
+            ),
+          ],
           _buildMediaGrid(),
 
           const SliverToBoxAdapter(

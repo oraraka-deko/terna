@@ -1,16 +1,13 @@
 library;
 
-import 'dart:math';
+import '../gift_shop/gift_shop_screen.dart';
+
 import 'package:flutter/material.dart';
 
-import '../../models/inventory/inventory_models.dart';
-import '../../models/upgrade_game/telegram_gift_model.dart';
 import '../../services/haptic.dart';
-import '../../services/inventory/inventory_repository.dart';
 import '../../services/shop/shop_repository.dart';
 import '../../services/wallet/wallet_repository.dart';
 import '../../widgets/shop/gemini_store_section.dart';
-import '../../widgets/shop/lucky_roulette_modal.dart';
 import '../wallet/wallet_screen.dart';
 
 class ShopScreen extends StatefulWidget {
@@ -23,7 +20,6 @@ class ShopScreen extends StatefulWidget {
 class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final _wallet = WalletRepository();
-  final _inventory = InventoryRepository();
   final _shopRepo = ShopRepository();
 
   // Stars Purchase Form State
@@ -55,82 +51,7 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _openLuckySpin(TelegramGift gift) {
-    LuckyRouletteModal.show(context, gift);
-  }
 
-  void _buyGiftDirect(TelegramGift gift) {
-    final tonCost = double.parse((gift.priceStars * 0.0086).toStringAsFixed(2));
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF131722),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF2DD4BF), width: 1.5),
-        ),
-        title: Text('Buy ${gift.name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              gift.webpPath,
-              width: 80,
-              height: 80,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const Icon(Icons.card_giftcard, size: 60, color: Colors.amber),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Price: ${gift.priceStars} Stars or $tonCost TON',
-              style: const TextStyle(color: Colors.white70),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (_wallet.starsBalance.value >= gift.priceStars) {
-                _wallet.debitStars(gift.priceStars, 'Purchased Gift: ${gift.name}');
-              } else if (_wallet.tonBalance.value >= tonCost) {
-                _wallet.debitTon(tonCost, 'Purchased Gift: ${gift.name}');
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Insufficient balance to buy gift!'), backgroundColor: Colors.redAccent),
-                );
-                return;
-              }
-
-              _inventory.addItem(
-                InventoryItem(
-                  instanceId: 'gift_${DateTime.now().millisecondsSinceEpoch}',
-                  giftId: gift.giftId,
-                  name: gift.name,
-                  priceStars: gift.priceStars,
-                  floorTon: tonCost,
-                  isCollectible: true,
-                  editionNumber: '#${Random().nextInt(899999) + 100000}',
-                  rarity: 1,
-                  acquiredAt: DateTime.now(),
-                ),
-              );
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${gift.name} added to your Inventory!'), backgroundColor: const Color(0xFF10B981)),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2DD4BF), foregroundColor: Colors.black),
-            child: const Text('Confirm Purchase', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
 
   Future<void> _buyStars() async {
     final tonPerStar = 0.0086;
@@ -265,8 +186,8 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
             child: GeminiStoreSection(),
           ),
 
-          // 2. Telegram Gifts
-          _buildGiftsTab(),
+          // 2. Telegram Gifts (Full Animated Lottie/TGS Gift Shop)
+          const GiftShopScreen(isEmbedded: true),
 
           // 3. Telegram Stars
           _buildStarsTab(),
@@ -278,150 +199,6 @@ class _ShopScreenState extends State<ShopScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildGiftsTab() {
-    final gifts = _shopRepo.getTelegramGifts();
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Promo Banner for Lucky Roulette
-        Container(
-          padding: const EdgeInsets.all(16),
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF2DD4BF).withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2DD4BF).withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.casino_rounded, color: Color(0xFF2DD4BF), size: 28),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Try Lucky Roulette!',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Win Telegram Gifts from as low as 0.05 TON or 5 Stars using custom probability.',
-                      style: TextStyle(color: Colors.white60, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Gifts Grid
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.72,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: gifts.length,
-          itemBuilder: (ctx, idx) {
-            final gift = gifts[idx];
-            final floorTon = double.parse((gift.priceStars * 0.0086).toStringAsFixed(2));
-
-            return Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF111624),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white10),
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Center(
-                      child: Image.asset(
-                        gift.webpPath,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => const Icon(Icons.card_giftcard, size: 50, color: Colors.amber),
-                      ),
-                    ),
-                  ),
-                  Column(
-                    children: [
-                      Text(
-                        gift.name,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.star_rounded, color: Color(0xFFFFB800), size: 14),
-                          const SizedBox(width: 2),
-                          Text('${gift.priceStars}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                          const SizedBox(width: 8),
-                          Text('~$floorTon TON', style: const TextStyle(color: Color(0xFF2DD4BF), fontSize: 11)),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => _openLuckySpin(gift),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFF2DD4BF)),
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(0, 32),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: const Text('Spin', style: TextStyle(color: Color(0xFF2DD4BF), fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _buyGiftDirect(gift),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2DD4BF),
-                                foregroundColor: Colors.black,
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(0, 32),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: const Text('Buy', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
 
   Widget _buildStarsTab() {
     final tonPerStar = 0.0086;

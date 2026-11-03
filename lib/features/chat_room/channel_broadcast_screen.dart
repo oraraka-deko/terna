@@ -1,7 +1,15 @@
+library;
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:terna/core/constants/app_assets.dart';
-import 'package:terna/core/theme/app_colors.dart';
+
+import '../../core/constants/app_assets.dart';
+import '../../core/theme/app_colors.dart';
+import '../../models/chat/chat_models.dart';
+import '../../services/chat/chat_service.dart';
+import '../../services/haptic.dart';
+import '../../widgets/chat/create_group_modal.dart';
+import '../../widgets/chat/report_message_modal.dart';
 
 class ChannelBroadcastScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -18,7 +26,42 @@ class ChannelBroadcastScreen extends StatefulWidget {
 }
 
 class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
+  final _chatService = ChatService();
+  final TextEditingController _inputController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
   bool _isMuted = false;
+  bool _showChatInput = false;
+
+  @override
+  void dispose() {
+    _inputController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _sendGlobalMessage() {
+    final text = _inputController.text.trim();
+    if (text.isEmpty) return;
+
+    _chatService.sendGlobalMessage(text: text);
+    _inputController.clear();
+    HapticFeedbackService.lightImpact();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _openCreateGroup() {
+    CreateGroupModal.show(context);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,48 +83,55 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
             ),
           ),
 
-          // 2. Broadcast Posts List
+          // 2. Broadcast Posts & Global Messages Stream
           Positioned.fill(
-            child: ListView(
-              padding: const EdgeInsets.only(top: 116, bottom: 95, left: 14, right: 14),
-              children: [
-                // Post 1: Media + Text + Reactions + Share
-                _buildMediaPost(),
+            child: ValueListenableBuilder<List<ChatMessage>>(
+              valueListenable: _chatService.globalMessages,
+              builder: (ctx, globalMsgs, _) {
+                return ListView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(top: 116, bottom: 110, left: 14, right: 14),
+                  children: [
+                    // Official Pinned Broadcast Post
+                    _buildPinnedMediaPost(),
 
-                const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-                // Centered Date Header Pill ("March 23")
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7A8B74).withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Text(
-                      'March 23',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                    // Centered Date Header Pill ("Today")
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7A8B74).withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Text(
+                          'GLOBAL LIVE CHAT & ANNOUNCEMENTS',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
 
-                const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-                // Post 2: Multi-paragraph broadcast text
-                _buildTextBroadcastPost(),
-              ],
+                    // Dynamic Global Live Messages
+                    ...globalMsgs.map((msg) => _buildGlobalMessageCard(msg)),
+                  ],
+                );
+              },
             ),
           ),
 
           // 3. Floating Channel Header
           _buildFloatingChannelHeader(),
 
-          // 4. Channel Bottom Bar (Comments/Gift, Mute, Search)
-          _buildChannelBottomBar(),
+          // 4. Channel Bottom Bar or Active Chat Input Bar
+          if (_showChatInput) _buildActiveInputBar() else _buildChannelBottomBar(),
         ],
       ),
     );
@@ -95,13 +145,13 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
       right: 14,
       child: Row(
         children: [
-          // Left back button with unread count (< 8)
+          // Left back button
           ClipRRect(
             borderRadius: BorderRadius.circular(22),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
               child: GestureDetector(
-                onTap: widget.onBack,
+                onTap: widget.onBack ?? () => Navigator.maybePop(context),
                 child: Container(
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -115,14 +165,7 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
                     children: [
                       Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: AppColors.primaryBlue),
                       SizedBox(width: 4),
-                      Text(
-                        '8',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryBlue,
-                        ),
-                      ),
+                      Text('Chats', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
                     ],
                   ),
                 ),
@@ -132,7 +175,7 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
 
           const SizedBox(width: 8),
 
-          // Center Pill: Pavel Durov + Gift + Verified + Subscribers
+          // Center Pill: Pavel Durov & Online subscribers
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(22),
@@ -157,11 +200,7 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
                           children: [
                             const Text(
                               'Pavel Durov',
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                             ),
                             const SizedBox(width: 4),
                             Image.asset(
@@ -171,18 +210,14 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
                               errorBuilder: (_, _, _) => const SizedBox.shrink(),
                             ),
                             const SizedBox(width: 3),
-                            const Icon(
-                              Icons.verified_rounded,
-                              size: 14,
-                              color: AppColors.primaryBlue,
-                            ),
+                            const Icon(Icons.verified_rounded, size: 14, color: AppColors.primaryBlue),
                           ],
                         ),
-                        const Text(
-                          '10,288,126 subscribers',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: AppColors.textSecondary,
+                        ValueListenableBuilder<int>(
+                          valueListenable: _chatService.onlineCount,
+                          builder: (ctx, count, _) => Text(
+                            '$count online • 10,288k subscribers',
+                            style: const TextStyle(fontSize: 10.5, color: AppColors.primaryBlue, fontWeight: FontWeight.w500),
                           ),
                         ),
                       ],
@@ -195,22 +230,24 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
 
           const SizedBox(width: 8),
 
-          // Right Circular Durov Avatar
-          GestureDetector(
-            onTap: widget.onHeaderTap,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF1C1C1E),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Image.asset(
-                AppAssets.avatarCallDuck,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const Center(
-                  child: Text('PD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          // Right Button: Create Group / Topic 👥+
+          ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: GestureDetector(
+                onTap: _openCreateGroup,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.group_add_rounded, size: 20, color: AppColors.primaryBlue),
+                  ),
                 ),
               ),
             ),
@@ -220,252 +257,236 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
     );
   }
 
-  // Media Post 1
-  Widget _buildMediaPost() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top screenshot image
-                Container(
-                  height: 190,
-                  width: double.infinity,
-                  color: const Color(0xFF1C1C1E),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Image.asset(
-                        AppAssets.patternCatsInSpace,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.monetization_on_rounded, color: Colors.amber, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Telegram Ad Revenue Split',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Post Text
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Text(
-                    'Starting today, channel owners can start receiving rewards for the ads shown in their channels. 50% of revenue goes directly to creators via the TON Blockchain! 🚀',
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      color: AppColors.textPrimary,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-
-                // Reaction Pills Wrap
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      _buildReactionPill(emoji: '⭐', count: '563', isHighlighted: true),
-                      _buildReactionPill(emoji: '❤️', count: '312'),
-                      _buildReactionPill(emoji: '🏆', count: '98'),
-                      _buildReactionPill(emoji: '🔥', count: '65'),
-                      _buildReactionPill(emoji: '😁', count: '51'),
-                      _buildReactionPill(emoji: '🤡', count: '12'),
-                    ],
-                  ),
-                ),
-
-                // Footer (Views, Author, Timestamp)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      const Icon(Icons.remove_red_eye_outlined, size: 14, color: Color(0xFF8E8E93)),
-                      const SizedBox(width: 4),
-                      const Text(
-                        '3,1M  Pavel Durov  9:41',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF8E8E93),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+  // Official Pinned Broadcast Media Post
+  Widget _buildPinnedMediaPost() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 1))],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Image.asset(
+            AppAssets.patternParis,
+            width: double.infinity,
+            height: 220,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              height: 160,
+              color: const Color(0xFF2DD4BF).withValues(alpha: 0.2),
+              child: const Center(child: Icon(Icons.photo_library_rounded, size: 40, color: Color(0xFF2DD4BF))),
             ),
           ),
-        ),
-
-        const SizedBox(width: 8),
-
-        // Detached Circular Share/Forward Button
-        _buildForwardButton(),
-      ],
-    );
-  }
-
-  // Text Broadcast Post 2
-  Widget _buildTextBroadcastPost() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Container(
+          Padding(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Telegram has reached 950 million monthly active users! 🎆\n\nUp from 900M in the spring. We are on track to hit 1 BILLION this year. 💰\n\nThank you to everyone who chooses freedom, privacy, and seamless communication. The best is yet to come! 💪🙏',
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    color: AppColors.textPrimary,
-                    height: 1.35,
-                  ),
+                  '🚀 Terna MiniApp 2.0 Live Rollout\n\nFull on-chain TON Connect deposits, Telegram Stars integration, and Provably Fair arcade games are now online for all users.',
+                  style: TextStyle(fontSize: 14.5, height: 1.4, color: AppColors.textPrimary),
                 ),
-
-                const SizedBox(height: 10),
-
-                // Reaction Pills Wrap
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    _buildReactionPill(emoji: '🔥', count: '72K', isHighlighted: true),
-                    _buildReactionPill(emoji: '❤️', count: '39,4K'),
-                    _buildReactionPill(emoji: '🏆', count: '18,2K'),
-                  ],
-                ),
-
-                const SizedBox(height: 8),
-
-                // Footer
+                const SizedBox(height: 12),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.remove_red_eye_outlined, size: 14, color: Color(0xFF8E8E93)),
-                    const SizedBox(width: 4),
-                    const Text(
-                      '1,6M  Pavel Durov  9:41',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF8E8E93),
-                      ),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        _buildReactionPill('🔥', 842),
+                        _buildReactionPill('❤️', 619),
+                        _buildReactionPill('🚀', 512),
+                      ],
                     ),
+                    const Text('18:04', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
                   ],
                 ),
               ],
             ),
           ),
-        ),
-
-        const SizedBox(width: 8),
-
-        _buildForwardButton(),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildReactionPill({
-    required String emoji,
-    required String count,
-    bool isHighlighted = false,
-  }) {
+  Widget _buildGlobalMessageCard(ChatMessage msg) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: msg.isOutgoing ? const Color(0xFFE1FFC7) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 1))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      msg.senderAvatar ?? AppAssets.avatarCat,
+                      width: 24,
+                      height: 24,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Icon(Icons.person, size: 24),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    msg.senderName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryBlue),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.more_horiz_rounded, size: 18, color: Colors.grey),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () {
+                  ReportMessageModal.show(context, messageId: msg.id, senderName: msg.senderName);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(msg.text, style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.35)),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Wrap(
+                spacing: 6,
+                children: [
+                  _buildInteractiveReaction(msg.id, '🔥', msg.reactions['🔥'] ?? 0),
+                  _buildInteractiveReaction(msg.id, '❤️', msg.reactions['❤️'] ?? 0),
+                  _buildInteractiveReaction(msg.id, '👏', msg.reactions['👏'] ?? 0),
+                  _buildInteractiveReaction(msg.id, '🚀', msg.reactions['🚀'] ?? 0),
+                ],
+              ),
+              Text(msg.time, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInteractiveReaction(String msgId, String emoji, int count) {
+    return InkWell(
+      onTap: () {
+        _chatService.toggleReaction(msgId, emoji, isGlobal: true);
+        HapticFeedbackService.lightImpact();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: count > 0 ? const Color(0xFFF2F2F7) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 13)),
+            if (count > 0) ...[
+              const SizedBox(width: 4),
+              Text('$count', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReactionPill(String emoji, int count) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isHighlighted
-            ? const Color(0xFFFFF1CC)
-            : const Color(0xFFF0F5FA),
+        color: const Color(0xFFF2F2F7),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isHighlighted ? const Color(0xFFFFCC00) : Colors.transparent,
-          width: 1,
-        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(emoji, style: const TextStyle(fontSize: 13)),
           const SizedBox(width: 4),
-          Text(
-            count,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: isHighlighted ? const Color(0xFF996500) : AppColors.primaryBlue,
-            ),
-          ),
+          Text('$count', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87)),
         ],
       ),
     );
   }
 
-  Widget _buildForwardButton() {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+  // Active Bottom Text Input Bar
+  Widget _buildActiveInputBar() {
+    return Positioned(
+      bottom: 24,
+      left: 14,
+      right: 14,
+      child: Row(
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                  ),
+                  child: TextField(
+                    controller: _inputController,
+                    autofocus: true,
+                    onSubmitted: (_) => _sendGlobalMessage(),
+                    decoration: InputDecoration(
+                      hintText: 'Join the global live discussion...',
+                      hintStyle: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
+                        onPressed: () => setState(() => _showChatInput = false),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: GestureDetector(
+                onTap: _sendGlobalMessage,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryBlue,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.arrow_upward_rounded, size: 24, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-      child: const Icon(
-        Icons.reply_rounded,
-        size: 20,
-        color: AppColors.primaryBlue,
       ),
     );
   }
@@ -478,31 +499,28 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
       right: 14,
       child: Row(
         children: [
-          // Left Pill: Comments + Gift
+          // Left Pill: Comments / Live Chat toggle
           ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.mode_comment_outlined, size: 20, color: Color(0xFF8E8E93)),
-                    const SizedBox(width: 8),
-                    Image.asset(
-                      AppAssets.giftSampleGold,
-                      width: 18,
-                      height: 18,
-                      errorBuilder: (_, _, _) => const Icon(Icons.card_giftcard, size: 18, color: Colors.amber),
-                    ),
-                  ],
+              child: GestureDetector(
+                onTap: () => setState(() => _showChatInput = true),
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.mode_comment_outlined, size: 20, color: AppColors.primaryBlue),
+                      SizedBox(width: 8),
+                      Text('Chat', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primaryBlue)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -518,9 +536,8 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: GestureDetector(
                   onTap: () {
-                    setState(() {
-                      _isMuted = !_isMuted;
-                    });
+                    setState(() => _isMuted = !_isMuted);
+                    HapticFeedbackService.selection();
                   },
                   child: Container(
                     height: 48,
@@ -531,9 +548,9 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
                       border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
                     ),
                     child: Text(
-                      _isMuted ? 'Unmute' : 'Mute',
+                      _isMuted ? 'Unmute Channel' : 'Mute Notifications',
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),
@@ -546,25 +563,23 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
 
           const SizedBox(width: 8),
 
-          // Right Circular Glass Search Button
+          // Right Button: Create Group
           ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
-                ),
-                child: Center(
-                  child: Image.asset(
-                    AppAssets.symbolSearch,
-                    width: 20,
-                    height: 20,
-                    errorBuilder: (_, _, _) => const Icon(Icons.search, size: 22, color: Color(0xFF8E8E93)),
+              child: GestureDetector(
+                onTap: _openCreateGroup,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.add, size: 24, color: AppColors.primaryBlue),
                   ),
                 ),
               ),
@@ -575,4 +590,3 @@ class _ChannelBroadcastScreenState extends State<ChannelBroadcastScreen> {
     );
   }
 }
-

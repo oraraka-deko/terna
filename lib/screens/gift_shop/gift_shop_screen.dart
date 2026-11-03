@@ -1,3 +1,5 @@
+import '../../models/upgrade_game/telegram_gift_model.dart';
+import '../../widgets/shop/lucky_roulette_modal.dart';
 import 'package:flutter/material.dart';
 import '../../features/gift_shop/view_models/gift_shop_view_model.dart';
 import '../../models/gift_shop/gift_shop_models.dart';
@@ -16,7 +18,8 @@ import '../../widgets/gift_shop/gift_shop_my_gifts_widget.dart';
 /// Features high modularity with independent layer widgets, responsive layout,
 /// animated Lottie .tgs Telegram gifts, and interactive collection filtering.
 class GiftShopScreen extends StatefulWidget {
-  const GiftShopScreen({super.key});
+  final bool isEmbedded;
+  const GiftShopScreen({super.key, this.isEmbedded = false});
 
   @override
   State<GiftShopScreen> createState() => _GiftShopScreenState();
@@ -68,6 +71,18 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
           currentCurrency: _viewModel.filterState.currency,
           onBuy: (selectedItem) {
             _handlePurchase(selectedItem);
+          },
+          onLuckySpin: (selectedItem) {
+            LuckyRouletteModal.show(
+              context,
+              TelegramGift(
+                giftId: selectedItem.giftId,
+                name: selectedItem.name,
+                priceStars: selectedItem.priceStars,
+                totalStock: 500000,
+                isUpgradeable: true,
+              ),
+            );
           },
         );
       },
@@ -126,6 +141,17 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
                 )
                 .name
             : null;
+
+        if (widget.isEmbedded) {
+          return Container(
+            color: const Color(0xFF0C0E14),
+            child: _viewModel.isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
+                  )
+                : _buildStoreView(activeCollection),
+          );
+        }
 
         return Scaffold(
           backgroundColor: const Color(0xFF0C0E14),

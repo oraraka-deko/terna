@@ -20,12 +20,28 @@ class TelegramAppRoot extends StatefulWidget {
 class _TelegramAppRootState extends State<TelegramAppRoot> {
   TelegramTab _currentTab = TelegramTab.chats;
 
-  void _navigateToPersonalChat() {
+  void _navigateToLiveChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MobileFrameWrapper(
+          onExit: () => Navigator.of(context).pop(),
+          child: ChannelBroadcastScreen(
+            onBack: () => Navigator.of(context).pop(),
+            onHeaderTap: () => _navigateToProfile(ProfileType.channel),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToPersonalChat([String recipientId = 'cat', String recipientName = 'Cat']) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => MobileFrameWrapper(
           onExit: () => Navigator.of(context).pop(),
           child: PersonalChatScreen(
+            recipientId: recipientId,
+            recipientName: recipientName,
             onBack: () => Navigator.of(context).pop(),
             onHeaderProfileTap: () => _navigateToProfile(ProfileType.personal),
           ),
@@ -78,11 +94,7 @@ class _TelegramAppRootState extends State<TelegramAppRoot> {
                   // Tab 0: Contacts
                   ContactsScreen(
                     onContactTap: (name) {
-                      if (name == 'Cat') {
-                        _navigateToPersonalChat();
-                      } else {
-                        _navigateToProfile(ProfileType.personal);
-                      }
+                      _navigateToPersonalChat(name.toLowerCase(), name);
                     },
                   ),
 
@@ -100,7 +112,9 @@ class _TelegramAppRootState extends State<TelegramAppRoot> {
                   // Tab 2: Chats
                   ChatsScreen(
                     onChatTap: (item) {
-                      if (item.id == '16bit_team') {
+                      if (item.id == 'live_global_chat') {
+                        _navigateToLiveChat();
+                      } else if (item.id == '16bit_team') {
                         _navigateToChannel();
                       } else {
                         _navigateToPersonalChat();

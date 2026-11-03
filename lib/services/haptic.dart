@@ -5,6 +5,7 @@ class HapticFeedbackService {
 
   // Single interactions
   static void tap() => _haptics.selectionChanged();
+  static void selection() => _haptics.selectionChanged();
   static void lightImpact() => _haptics.impactOccurred(style:HapticFeedbackImpactStyle.light);
   static void mediumImpact() => _haptics.impactOccurred(style:HapticFeedbackImpactStyle.medium);
   static void heavyImpact() => _haptics.impactOccurred(style:HapticFeedbackImpactStyle.heavy);
