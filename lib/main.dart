@@ -6,6 +6,7 @@ import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:flutter_telegram_miniapp/flutter_telegram_miniapp.dart';
 
 import 'package:flutter/services.dart';
+import 'core/widgets/telegram_safe_area.dart';
 late AudioSource flipping;
 late SoLoud soloud;
 late AudioSource spins;
@@ -79,11 +80,13 @@ class LauncherApp extends StatelessWidget {
 
       ),
 
-      home: const AppDrawerScreen(),
+        builder: (context, child) => TelegramSafeArea(
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: const AppDrawerScreen(),
       );
   
   }
 }
-
 
 

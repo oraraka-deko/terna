@@ -89,8 +89,8 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
     );
   }
 
-  void _handlePurchase(GiftShopItem item) {
-    final success = _viewModel.purchaseGift(item);
+  Future<void> _handlePurchase(GiftShopItem item) async {
+    final success = await _viewModel.purchaseGift(item);
     if (!mounted) return;
 
     if (success) {
@@ -116,8 +116,10 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
             children: [
               const Icon(Icons.warning_amber_rounded, color: Color(0xFFF87171)),
               const SizedBox(width: 8),
-              Text(
-                'Insufficient ${_viewModel.filterState.currency == GiftShopCurrency.stars ? "Stars" : "GRAM"} balance!',
+              Expanded(
+                child: Text(
+                  _viewModel.purchaseError ?? 'Gift purchase failed.',
+                ),
               ),
             ],
           ),
@@ -269,4 +271,3 @@ class _GiftShopScreenState extends State<GiftShopScreen> {
     );
   }
 }
-

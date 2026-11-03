@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
+
 import '../../models/gift_shop/gift_shop_models.dart';
 
-/// Top bar with user balance pills (Stars & GRAM) and navigation action.
+/// Top bar with user balance pills (Stars & TON) and navigation action.
 class GiftShopHeaderWidget extends StatelessWidget {
   final GiftShopUserInventory inventory;
   final VoidCallback? onBack;
 
-  const GiftShopHeaderWidget({
-    super.key,
-    required this.inventory,
-    this.onBack,
-  });
+  const GiftShopHeaderWidget({super.key, required this.inventory, this.onBack});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +17,11 @@ class GiftShopHeaderWidget extends StatelessWidget {
         children: [
           if (onBack != null)
             IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
               onPressed: onBack,
               tooltip: 'Back',
               padding: EdgeInsets.zero,
@@ -56,7 +57,7 @@ class GiftShopHeaderWidget extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          // GRAM Balance Pill (matching top-right of screenshot)
+          // TON Balance Pill
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -74,8 +75,7 @@ class GiftShopHeaderWidget extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  // PLACEHOLDER: dynamic demo gram balance
-                  '${inventory.gramBalance.toStringAsFixed(inventory.gramBalance % 1 == 0 ? 0 : 2)} GRAM',
+                  '${inventory.tonBalance.toStringAsFixed(inventory.tonBalance % 1 == 0 ? 0 : 2)} TON',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
@@ -90,4 +90,3 @@ class GiftShopHeaderWidget extends StatelessWidget {
     );
   }
 }
-

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+
+import '../../../services/api/gateway_api_service.dart';
 import '../../../models/gift_shop/gift_shop_models.dart';
 import '../../../services/gift_shop/gift_shop_repository.dart';
 import '../../../services/gift_shop/gift_shop_audio_service.dart';
+import '../../../services/wallet/wallet_repository.dart';
 
 /// ViewModel managing state, filtering, and interactions for the Gift Shop.
 class GiftShopViewModel extends ChangeNotifier {
@@ -20,30 +23,46 @@ class GiftShopViewModel extends ChangeNotifier {
   GiftShopFilterState get filterState => _filterState;
 
   GiftShopUserInventory _userInventory = const GiftShopUserInventory(
-    starsBalance: 100, // PLACEHOLDER: 100 Stars demo
-    tonBalance: 10.0, // PLACEHOLDER: 10 TON demo
-    gramBalance: 10.0, // PLACEHOLDER: 10 GRAM demo
-    isPlaceholder: true, // PLACEHOLDER
+    starsBalance: 0,
+    tonBalance: 0,
+    isPlaceholder: false,
   );
   GiftShopUserInventory get userInventory => _userInventory;
+  bool _isPurchasing = false;
+  bool get isPurchasing => _isPurchasing;
+  String? _purchaseError;
+  String? get purchaseError => _purchaseError;
 
   int _selectedBottomNavIndex = 1; // 1 = Store
   int get selectedBottomNavIndex => _selectedBottomNavIndex;
 
   GiftShopViewModel({GiftShopRepository? repository})
-      : _repository = repository ?? GiftShopRepository();
+    : _repository = repository ?? GiftShopRepository();
 
-  /// Initialize and load catalog, collections, and initial demo inventory
+  /// Initialize the catalog and load wallet-backed balances and inventory.
   Future<void> init() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      _catalog = await _repository.loadCatalog();
+      final prices = await GatewayApiService().getShopPrices();
+      final starsPriceUsd = (prices['starsPriceUsd'] as num?)?.toDouble();
+      final tonPriceUsd = (prices['tonPriceUsd'] as num?)?.toDouble();
+      if (starsPriceUsd == null ||
+          starsPriceUsd <= 0 ||
+          tonPriceUsd == null ||
+          tonPriceUsd <= 0) {
+        throw StateError('The shop did not return valid currency prices.');
+      }
+
+      _catalog = await _repository.loadCatalog(
+        starsPriceUsd: starsPriceUsd,
+        tonPriceUsd: tonPriceUsd,
+      );
       _collections = _repository.getCollections();
-      _userInventory = await _repository.loadInitialPlaceholderInventory();
+      await _refreshWalletAndInventory();
     } catch (_) {
-      // Fallback already provided in repository
+      _purchaseError = 'Unable to load your wallet-backed gift inventory.';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -98,14 +117,18 @@ class GiftShopViewModel extends ChangeNotifier {
     // Sort items
     switch (_filterState.sortBy) {
       case GiftShopSortBy.priceAsc:
-        items.sort((a, b) => _filterState.currency == GiftShopCurrency.stars
-            ? a.priceStars.compareTo(b.priceStars)
-            : a.priceGram.compareTo(b.priceGram));
+        items.sort(
+          (a, b) => _filterState.currency == GiftShopCurrency.stars
+              ? a.priceStars.compareTo(b.priceStars)
+              : a.priceTon.compareTo(b.priceTon),
+        );
         break;
       case GiftShopSortBy.priceDesc:
-        items.sort((a, b) => _filterState.currency == GiftShopCurrency.stars
-            ? b.priceStars.compareTo(a.priceStars)
-            : b.priceGram.compareTo(a.priceGram));
+        items.sort(
+          (a, b) => _filterState.currency == GiftShopCurrency.stars
+              ? b.priceStars.compareTo(a.priceStars)
+              : b.priceTon.compareTo(a.priceTon),
+        );
         break;
       case GiftShopSortBy.popular:
         items.sort((a, b) => b.modelCount.compareTo(a.modelCount));
@@ -118,7 +141,7 @@ class GiftShopViewModel extends ChangeNotifier {
     return items;
   }
 
-  /// Toggle Currency Mode between Stars and GRAM
+  /// Toggle Currency Mode between Stars and TON
   void setCurrency(GiftShopCurrency currency) {
     if (_filterState.currency == currency) return;
     GiftShopAudioService.playTap();
@@ -190,30 +213,94 @@ class GiftShopViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Purchase gift item simulation
-  bool purchaseGift(GiftShopItem item) {
-    if (_filterState.currency == GiftShopCurrency.stars) {
-      if (_userInventory.starsBalance < item.priceStars) {
-        return false;
-      }
-      final updatedOwned = List<GiftShopItem>.from(_userInventory.ownedGifts)..add(item);
-      _userInventory = _userInventory.copyWith(
-        starsBalance: _userInventory.starsBalance - item.priceStars,
-        ownedGifts: updatedOwned,
-      );
-    } else {
-      if (_userInventory.gramBalance < item.priceGram) {
-        return false;
-      }
-      final updatedOwned = List<GiftShopItem>.from(_userInventory.ownedGifts)..add(item);
-      _userInventory = _userInventory.copyWith(
-        gramBalance: double.parse((_userInventory.gramBalance - item.priceGram).toStringAsFixed(2)),
-        ownedGifts: updatedOwned,
-      );
+  Future<bool> purchaseGift(GiftShopItem item) async {
+    if (_isPurchasing) return false;
+
+    final currency = _filterState.currency == GiftShopCurrency.stars
+        ? 'stars'
+        : 'ton';
+    final balance = currency == 'stars'
+        ? WalletRepository().starsBalance.value.toDouble()
+        : WalletRepository().tonBalance.value;
+    final amount = currency == 'stars'
+        ? item.priceStars.toDouble()
+        : item.priceTon;
+    if (balance < amount) {
+      _purchaseError =
+          'Insufficient ${currency == 'stars' ? 'Stars' : 'TON'} balance.';
+      notifyListeners();
+      return false;
     }
 
-    GiftShopAudioService.playCoin();
+    _isPurchasing = true;
+    _purchaseError = null;
     notifyListeners();
-    return true;
+    try {
+      final api = GatewayApiService();
+      final response = await api.purchaseShopGift(
+        giftId: item.giftId,
+        currency: currency,
+      );
+      final gift = response['gift'];
+      if (response['success'] != true ||
+          gift is! Map<String, dynamic> ||
+          gift['id'] is! String ||
+          gift['giftId'] != item.giftId) {
+        throw StateError(
+          response['error']?.toString() ??
+              'The backend did not confirm the gift purchase.',
+        );
+      }
+
+      final wallet = response['wallet'];
+      if (wallet is! Map<String, dynamic> ||
+          wallet['tonBalance'] is! num ||
+          wallet['starsBalance'] is! num) {
+        throw StateError(
+          'The backend did not return the updated wallet balances.',
+        );
+      }
+      WalletRepository().tonBalance.value = (wallet['tonBalance'] as num)
+          .toDouble();
+      WalletRepository().starsBalance.value = (wallet['starsBalance'] as num)
+          .toInt();
+      _userInventory = _userInventory.copyWith(
+        tonBalance: WalletRepository().tonBalance.value,
+        starsBalance: WalletRepository().starsBalance.value,
+        ownedGifts: [..._userInventory.ownedGifts, item],
+        isPlaceholder: false,
+      );
+
+      GiftShopAudioService.playCoin();
+      return true;
+    } catch (error) {
+      _purchaseError = error.toString();
+      return false;
+    } finally {
+      _isPurchasing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _refreshWalletAndInventory() async {
+    final wallet = WalletRepository();
+    await wallet.refreshBalances();
+    final rawInventory = await GatewayApiService().getUserInventory();
+    final catalogById = {for (final item in _catalog) item.giftId: item};
+    final owned = <GiftShopItem>[];
+    for (final raw in rawInventory) {
+      if (raw is! Map<String, dynamic>) continue;
+      final giftId = raw['giftId']?.toString();
+      final catalogItem = catalogById[giftId];
+      if (catalogItem == null) continue;
+      owned.add(catalogItem);
+    }
+
+    _userInventory = GiftShopUserInventory(
+      starsBalance: wallet.starsBalance.value,
+      tonBalance: wallet.tonBalance.value,
+      ownedGifts: owned,
+      isPlaceholder: false,
+    );
   }
 }

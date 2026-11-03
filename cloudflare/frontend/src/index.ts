@@ -2,6 +2,7 @@ export interface Env {
   ASSETS: Fetcher;
   GATEWAY: Fetcher;
   GIFT_ASSETS: R2Bucket;
+  BACKEND_ORIGIN: string;
 }
 
 const corsHeaders: Record<string, string> = {
@@ -10,6 +11,19 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Telegram-Init-Data, X-User-Id, X-Username",
   "Access-Control-Max-Age": "86400",
 };
+
+function addCorsHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(corsHeaders)) {
+    headers.set(key, value);
+  }
+  headers.set("Cache-Control", "no-store");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -20,22 +34,35 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // 1. Direct 0ms internal handoff for API, WebSockets, and health checks to Gateway Worker
+    // Keep realtime Durable Object connections on the Cloudflare gateway.
+    if (url.pathname === "/ws" || url.pathname.startsWith("/ws/")) {
+      return env.GATEWAY.fetch(request);
+    }
+
+    // The game and wallet API is hosted by the Express backend on the VPS.
     if (
+      url.pathname === "/api" ||
       url.pathname.startsWith("/api/") ||
-      url.pathname.startsWith("/ws/") ||
       url.pathname === "/health"
     ) {
-      const gatewayRes = await env.GATEWAY.fetch(request);
-      const newHeaders = new Headers(gatewayRes.headers);
-      for (const [k, v] of Object.entries(corsHeaders)) {
-        newHeaders.set(k, v);
+      try {
+        const backendPath = url.pathname === "/health" ? "/api/health" : url.pathname;
+        const backendUrl = new URL(`${backendPath}${url.search}`, env.BACKEND_ORIGIN);
+        const backendRequest = new Request(backendUrl, request);
+        return addCorsHeaders(await fetch(backendRequest));
+      } catch (error) {
+        console.error("[Frontend Worker] VPS backend request failed:", error);
+        return new Response(
+          JSON.stringify({ error: "Backend is unavailable." }),
+          {
+            status: 502,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          },
+        );
       }
-      return new Response(gatewayRes.body, {
-        status: gatewayRes.status,
-        statusText: gatewayRes.statusText,
-        headers: newHeaders,
-      });
     }
 
     // 1.1 Explicit public tonconnect-manifest.json handler with CORS

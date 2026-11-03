@@ -1,5 +1,6 @@
 library;
 
+import 'dart:async';
 import '../../models/plinko_game/plinko_models.dart';
 import '../api/gateway_api_service.dart';
 import '../wallet/wallet_repository.dart';
@@ -28,7 +29,7 @@ class PlinkoGameRepository {
         result['error']?.toString() ?? 'The backend rejected the Plinko drop.',
       );
     }
-    await WalletRepository().refreshBalances();
+    unawaited(WalletRepository().refreshBalances());
     return result;
   }
 }

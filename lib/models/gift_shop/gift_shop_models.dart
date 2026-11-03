@@ -1,40 +1,23 @@
 import 'package:flutter/material.dart';
 
 /// Currency toggle mode in the Gift Shop banner ("Play With")
-enum GiftShopCurrency {
-  stars,
-  gram,
-}
+enum GiftShopCurrency { stars, ton }
 
 /// Category tabs in the Gift Shop
-enum GiftShopCategory {
-  all,
-  collections,
-  stars,
-  craft,
-}
+enum GiftShopCategory { all, collections, stars, craft }
 
 /// Sorting options for gifts
-enum GiftShopSortBy {
-  priceAsc,
-  priceDesc,
-  popular,
-  name,
-}
+enum GiftShopSortBy { priceAsc, priceDesc, popular, name }
 
 /// View layout mode for the gifts grid
-enum GiftShopViewMode {
-  grid2,
-  grid3,
-  list,
-}
+enum GiftShopViewMode { grid2, grid3, list }
 
 /// Domain model representing a Telegram Gift available in the shop.
 class GiftShopItem {
   final String giftId;
   final String name;
   final int priceStars;
-  final double priceGram;
+  final double priceTon;
   final int totalStock;
   final bool isUpgradeable;
   final String editionNumber; // e.g. "#135966"
@@ -54,7 +37,7 @@ class GiftShopItem {
     required this.giftId,
     required this.name,
     required this.priceStars,
-    required this.priceGram,
+    required this.priceTon,
     this.totalStock = 0,
     this.isUpgradeable = false,
     required this.editionNumber,
@@ -75,14 +58,19 @@ class GiftShopItem {
   String get pngPath => 'assets/telegram/gifts/png/gift_$giftId.png';
 
   /// Helper factory to parse from telegram_gifts.json item
-  factory GiftShopItem.fromJson(Map<String, dynamic> json, {int index = 0}) {
+  factory GiftShopItem.fromJson(
+    Map<String, dynamic> json, {
+    int index = 0,
+    double starsPriceUsd = 0.013,
+    double tonPriceUsd = 1.5,
+  }) {
     final giftId = json['gift_id']?.toString() ?? '';
     final name = json['name']?.toString() ?? 'Gift';
     final priceStars = (json['price_stars'] as num?)?.toInt() ?? 25;
 
-    // Gram conversion approximation: 1 GRAM ~= 100 Stars / 1.5 USD equivalent
-    // PLACEHOLDER: demo floor prices matching the screenshots (e.g. 6.78 - 18.5 GRAM)
-    final priceGram = double.parse(((priceStars * 0.08) + ((giftId.hashCode % 500) / 100.0)).toStringAsFixed(2));
+    final priceTon = double.parse(
+      (priceStars * starsPriceUsd / tonPriceUsd).toStringAsFixed(4),
+    );
 
     // Dynamic edition number like #135966
     final editionSeed = (giftId.hashCode.abs() % 900000) + 100000;
@@ -107,7 +95,7 @@ class GiftShopItem {
       giftId: giftId,
       name: name,
       priceStars: priceStars,
-      priceGram: priceGram,
+      priceTon: priceTon,
       totalStock: (json['total_stock'] as num?)?.toInt() ?? 10000,
       isUpgradeable: isUpgradeable,
       editionNumber: editionNumber,
@@ -124,7 +112,8 @@ class GiftShopItem {
   }
 
   static List<Color> _extractGradient(Map<String, dynamic> json, int index) {
-    if (json['sample_backdrops'] is List && (json['sample_backdrops'] as List).isNotEmpty) {
+    if (json['sample_backdrops'] is List &&
+        (json['sample_backdrops'] as List).isNotEmpty) {
       final first = (json['sample_backdrops'] as List).first;
       if (first is Map) {
         final centerHex = first['center_color']?.toString() ?? '';
@@ -166,7 +155,7 @@ class GiftCollection {
   final String name;
   final String iconGiftId;
   final String supplyFormatted; // e.g. "242.5K 🎁"
-  final double floorPriceGram; // e.g. 10.9
+  final double floorPriceTon; // e.g. 10.9
   final String volume24h; // e.g. "182.7K"
   final bool isNew;
   final bool isPlaceholder;
@@ -176,7 +165,7 @@ class GiftCollection {
     required this.name,
     required this.iconGiftId,
     required this.supplyFormatted,
-    required this.floorPriceGram,
+    required this.floorPriceTon,
     required this.volume24h,
     this.isNew = false,
     this.isPlaceholder = true, // PLACEHOLDER
@@ -187,29 +176,25 @@ class GiftCollection {
 class GiftShopUserInventory {
   final int starsBalance;
   final double tonBalance;
-  final double gramBalance;
   final List<GiftShopItem> ownedGifts;
   final bool isPlaceholder;
 
   const GiftShopUserInventory({
-    this.starsBalance = 100, // PLACEHOLDER: 100 Stars demo
-    this.tonBalance = 10.0, // PLACEHOLDER: 10 TON demo
-    this.gramBalance = 10.0, // PLACEHOLDER: 10 GRAM demo
+    this.starsBalance = 0,
+    this.tonBalance = 0.0,
     this.ownedGifts = const [],
-    this.isPlaceholder = true, // PLACEHOLDER
+    this.isPlaceholder = false,
   });
 
   GiftShopUserInventory copyWith({
     int? starsBalance,
     double? tonBalance,
-    double? gramBalance,
     List<GiftShopItem>? ownedGifts,
     bool? isPlaceholder,
   }) {
     return GiftShopUserInventory(
       starsBalance: starsBalance ?? this.starsBalance,
       tonBalance: tonBalance ?? this.tonBalance,
-      gramBalance: gramBalance ?? this.gramBalance,
       ownedGifts: ownedGifts ?? this.ownedGifts,
       isPlaceholder: isPlaceholder ?? this.isPlaceholder,
     );
@@ -255,4 +240,3 @@ class GiftShopFilterState {
     );
   }
 }
-

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../models/gift_shop/gift_shop_models.dart';
 import '../upgrade_game/gift_visual_widget.dart';
 
@@ -68,7 +69,11 @@ class GiftShopDetailsModal extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.white, size: 18),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                         padding: EdgeInsets.zero,
                         onPressed: () => Navigator.of(context).pop(),
                       ),
@@ -152,14 +157,17 @@ class GiftShopDetailsModal extends StatelessWidget {
                         children: [
                           const Text(
                             'Price',
-                            style: TextStyle(color: Colors.white38, fontSize: 11),
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 11,
+                            ),
                           ),
                           Row(
                             children: [
                               Text(
                                 currentCurrency == GiftShopCurrency.stars
                                     ? '${item.priceStars} Stars'
-                                    : '${item.priceGram.toStringAsFixed(2)} GRAM',
+                                    : '${item.priceTon.toStringAsFixed(2)} TON',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 18,
@@ -189,12 +197,27 @@ class GiftShopDetailsModal extends StatelessWidget {
                             Navigator.of(context).pop();
                             onLuckySpin!(item);
                           },
-                          icon: const Icon(Icons.casino_rounded, size: 16, color: Color(0xFF2DD4BF)),
-                          label: const Text('Lucky Spin', style: TextStyle(color: Color(0xFF2DD4BF), fontWeight: FontWeight.bold)),
+                          icon: const Icon(
+                            Icons.casino_rounded,
+                            size: 16,
+                            color: Color(0xFF2DD4BF),
+                          ),
+                          label: const Text(
+                            'Lucky Spin',
+                            style: TextStyle(
+                              color: Color(0xFF2DD4BF),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFF2DD4BF)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -207,14 +230,17 @@ class GiftShopDetailsModal extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E88E5),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
                           elevation: 4,
                         ),
                         child: Text(
-                          'Buy with ${currentCurrency == GiftShopCurrency.stars ? "Stars" : "GRAM"}',
+                          'Buy with ${currentCurrency == GiftShopCurrency.stars ? "Stars" : "TON"}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
@@ -261,4 +287,3 @@ class GiftShopDetailsModal extends StatelessWidget {
     );
   }
 }
-

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../models/gift_shop/gift_shop_models.dart';
 
-/// Hero banner matching Image 1: "Play With" currency selector (Stars vs GRAM)
+/// Hero banner matching Image 1: "Play With" currency selector (Stars vs TON)
 class GiftShopPlayBannerWidget extends StatelessWidget {
   final GiftShopCurrency currentCurrency;
   final ValueChanged<GiftShopCurrency> onCurrencyChanged;
@@ -20,11 +21,7 @@ class GiftShopPlayBannerWidget extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF2E0854),
-            Color(0xFF4A0E78),
-            Color(0xFF6B21A8),
-          ],
+          colors: [Color(0xFF2E0854), Color(0xFF4A0E78), Color(0xFF6B21A8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -70,7 +67,10 @@ class GiftShopPlayBannerWidget extends StatelessWidget {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: currentCurrency == GiftShopCurrency.stars
                           ? const Color(0xFFFBBF24)
@@ -103,15 +103,18 @@ class GiftShopPlayBannerWidget extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                // GRAM / TON diamond option
+                // TON diamond option
                 GestureDetector(
-                  onTap: () => onCurrencyChanged(GiftShopCurrency.gram),
+                  onTap: () => onCurrencyChanged(GiftShopCurrency.ton),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: currentCurrency == GiftShopCurrency.gram
+                      color: currentCurrency == GiftShopCurrency.ton
                           ? const Color(0xFF38BDF8)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(24),
@@ -121,15 +124,15 @@ class GiftShopPlayBannerWidget extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.diamond_rounded,
-                          color: currentCurrency == GiftShopCurrency.gram
+                          color: currentCurrency == GiftShopCurrency.ton
                               ? Colors.black
                               : Colors.white60,
                           size: 20,
                         ),
-                        if (currentCurrency == GiftShopCurrency.gram) ...[
+                        if (currentCurrency == GiftShopCurrency.ton) ...[
                           const SizedBox(width: 4),
                           const Text(
-                            'GRAM',
+                            'TON',
                             style: TextStyle(
                               color: Colors.black,
                               fontWeight: FontWeight.w800,
@@ -149,4 +152,3 @@ class GiftShopPlayBannerWidget extends StatelessWidget {
     );
   }
 }
-

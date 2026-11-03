@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../models/gift_shop/gift_shop_models.dart';
 import '../upgrade_game/gift_visual_widget.dart';
 
@@ -22,7 +23,8 @@ class GiftShopCollectionSheet extends StatefulWidget {
   });
 
   @override
-  State<GiftShopCollectionSheet> createState() => _GiftShopCollectionSheetState();
+  State<GiftShopCollectionSheet> createState() =>
+      _GiftShopCollectionSheetState();
 }
 
 class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
@@ -45,9 +47,9 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
 
     filtered.sort((a, b) {
       if (_sortByPriceDesc) {
-        return b.floorPriceGram.compareTo(a.floorPriceGram);
+        return b.floorPriceTon.compareTo(a.floorPriceTon);
       } else {
-        return a.floorPriceGram.compareTo(b.floorPriceGram);
+        return a.floorPriceTon.compareTo(b.floorPriceTon);
       }
     });
 
@@ -94,7 +96,11 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
                     padding: EdgeInsets.zero,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -114,7 +120,9 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF1F222D),
                       borderRadius: BorderRadius.circular(21),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.06),
+                      ),
                     ),
                     child: TextField(
                       onChanged: (val) => setState(() => _searchQuery = val),
@@ -131,7 +139,9 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                           size: 20,
                         ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 11,
+                        ),
                       ),
                     ),
                   ),
@@ -143,10 +153,16 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF1F222D),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
                   ),
                   child: const Center(
-                    child: Icon(Icons.hardware_rounded, color: Colors.white54, size: 20),
+                    child: Icon(
+                      Icons.hardware_rounded,
+                      color: Colors.white54,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],
@@ -167,10 +183,15 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(Icons.unfold_more_rounded, color: Colors.white38, size: 16),
+                const Icon(
+                  Icons.unfold_more_rounded,
+                  color: Colors.white38,
+                  size: 16,
+                ),
                 const Spacer(),
                 GestureDetector(
-                  onTap: () => setState(() => _sortByPriceDesc = !_sortByPriceDesc),
+                  onTap: () =>
+                      setState(() => _sortByPriceDesc = !_sortByPriceDesc),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -220,7 +241,10 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                     });
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFF2563EB).withValues(alpha: 0.12)
@@ -252,7 +276,11 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                           ),
                           child: isSelected
                               ? const Center(
-                                  child: Icon(Icons.check, size: 12, color: Colors.white),
+                                  child: Icon(
+                                    Icons.check,
+                                    size: 12,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : null,
                         ),
@@ -311,12 +339,17 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                               if (col.isNew) ...[
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF22C55E).withValues(alpha: 0.2),
+                                    color: const Color(0xFF22C55E)
+                                        .withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: const Color(0xFF22C55E).withValues(alpha: 0.6),
+                                      color: const Color(0xFF22C55E)
+                                          .withValues(alpha: 0.6),
                                     ),
                                   ),
                                   child: const Text(
@@ -338,7 +371,7 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              '${col.floorPriceGram.toStringAsFixed(col.floorPriceGram % 1 == 0 ? 0 : 1)} GRAM',
+                              '${col.floorPriceTon.toStringAsFixed(col.floorPriceTon % 1 == 0 ? 0 : 1)} TON',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
@@ -385,12 +418,17 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF232734),
                       foregroundColor: Colors.white70,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: const Text(
                       'Clear all',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -407,13 +445,18 @@ class _GiftShopCollectionSheetState extends State<GiftShopCollectionSheet> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1E88E5),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       elevation: 4,
                     ),
                     child: const Text(
                       'Show results',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ),

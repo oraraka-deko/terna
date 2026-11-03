@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -40,6 +41,7 @@ class PlinkoGameViewModel extends ChangeNotifier {
   PlinkoWinRecord? lastWin;
 
   Ticker? _ticker;
+  Duration _lastTickerElapsed = Duration.zero;
   bool isDropping = false;
   String? errorMessage;
 
@@ -274,7 +276,11 @@ class PlinkoGameViewModel extends ChangeNotifier {
   // --- Continuous Animation Loop ---
 
   void _startTicker() {
-    _ticker = vsync.createTicker((_) {
+    _ticker = vsync.createTicker((elapsed) {
+      final elapsedSinceLastFrame = elapsed - _lastTickerElapsed;
+      _lastTickerElapsed = elapsed;
+      final frameDeltaMs = elapsedSinceLastFrame.inMicroseconds / 1000.0;
+      final boundedDeltaMs = frameDeltaMs.clamp(0.0, 50.0);
       var needsRepaint = false;
 
       // 1. Decay Peg shockwaves
@@ -301,7 +307,7 @@ class PlinkoGameViewModel extends ChangeNotifier {
         if (ball.settled) continue;
 
         needsRepaint = true;
-        ball.wpT += 0.088; // ~11 frames between bounces
+        ball.wpT += boundedDeltaMs / 180.0;
 
         if (ball.wpT >= 1.0) {
           ball.wpT = 0.0;

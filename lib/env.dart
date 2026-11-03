@@ -9,7 +9,11 @@ class Env {
 
   /// Configurable backend URL.
   /// Can be overridden via dart-define: --dart-define=BACKEND_URL=https://...
-  /// Defaults to localhost:8080 during local development.
+  /// Web builds use the current origin by default so the frontend Worker can
+  /// proxy API traffic to the VPS. Set BACKEND_URL for local web development.
+  static const String _configuredBackendUrl = String.fromEnvironment(
+    'BACKEND_URL',
+  );
   static const String _defaultBackendUrl = String.fromEnvironment(
     'BACKEND_URL',
     defaultValue: 'https://api.esil.click',
@@ -26,6 +30,9 @@ class Env {
   static String get backendUrl {
     if (_customBackendUrl.isNotEmpty) {
       return _customBackendUrl;
+    }
+    if (kIsWeb && _configuredBackendUrl.isEmpty) {
+      return Uri.base.origin;
     }
     return _defaultBackendUrl;
   }

@@ -5,7 +5,11 @@ compatibility_date = "2026-10-01"
 # Serves Flutter's compiled build/web directory from the edge
 assets = { directory = "../../build/web", binding = "ASSETS" }
 
-# 0ms Internal Service Binding to the Gateway Worker
+# Game and wallet API hosted by the VPS Express backend.
+[vars]
+BACKEND_ORIGIN = "https://api.esil.click"
+
+# Realtime WebSocket rooms are still hosted by the Cloudflare gateway.
 [[services]]
 binding = "GATEWAY"
 service = "terna-gateway"

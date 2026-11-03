@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../../models/gift_shop/gift_shop_models.dart';
 import '../upgrade_game/gift_visual_widget.dart';
 
 /// Inventory gallery view for the "My gifts" tab:
-/// - Balance cards (100 Stars, 10 TON / 10 GRAM - placeholder demo)
+/// - Live in-app wallet balances
 /// - User's owned gifts gallery
-/// - Placeholder badges clearly flagged for future backend hookup
 class GiftShopMyGiftsWidget extends StatelessWidget {
   final GiftShopUserInventory inventory;
   final ValueChanged<GiftShopItem> onGiftTap;
@@ -23,7 +23,6 @@ class GiftShopMyGiftsWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // User Balances Card (PLACEHOLDER: 100 Stars, 10 TON)
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -49,21 +48,7 @@ class GiftShopMyGiftsWidget extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'PLACEHOLDER DEMO',
-                        style: TextStyle(
-                          color: Colors.orangeAccent,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
+                    const SizedBox.shrink(),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -74,20 +59,18 @@ class GiftShopMyGiftsWidget extends StatelessWidget {
                       child: _buildBalanceCard(
                         icon: Icons.star_rounded,
                         color: const Color(0xFFFBBF24),
-                        // PLACEHOLDER: 100 Stars demo
                         value: '${inventory.starsBalance}',
                         label: 'Stars',
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // TON / GRAM Balance
+                    // TON balance
                     Expanded(
                       child: _buildBalanceCard(
                         icon: Icons.diamond_rounded,
                         color: const Color(0xFF38BDF8),
-                        // PLACEHOLDER: 10 TON / 10 GRAM demo
                         value: '${inventory.tonBalance.toStringAsFixed(1)} TON',
-                        label: 'TON / GRAM',
+                        label: 'TON',
                       ),
                     ),
                   ],
@@ -137,7 +120,11 @@ class GiftShopMyGiftsWidget extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Column(
                   children: [
-                    const Icon(Icons.inventory_2_outlined, size: 48, color: Colors.white24),
+                    const Icon(
+                      Icons.inventory_2_outlined,
+                      size: 48,
+                      color: Colors.white24,
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'No gifts in inventory yet',
@@ -175,7 +162,9 @@ class GiftShopMyGiftsWidget extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                       ),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
                     ),
                     padding: const EdgeInsets.all(12),
                     child: Column(
@@ -192,7 +181,11 @@ class GiftShopMyGiftsWidget extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF38BDF8)),
+                            const Icon(
+                              Icons.verified_rounded,
+                              size: 14,
+                              color: Color(0xFF38BDF8),
+                            ),
                           ],
                         ),
                         Expanded(
@@ -284,4 +277,3 @@ class GiftShopMyGiftsWidget extends StatelessWidget {
     );
   }
 }
-

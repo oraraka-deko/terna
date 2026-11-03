@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../models/gift_shop/gift_shop_models.dart';
 import '../upgrade_game/gift_visual_widget.dart';
 
@@ -100,7 +101,8 @@ class _GiftShopCardWidgetState extends State<GiftShopCardWidget> {
                             height: 22,
                             margin: const EdgeInsets.only(right: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF22C55E).withValues(alpha: 0.85),
+                              color: const Color(0xFF22C55E)
+                                  .withValues(alpha: 0.85),
                               shape: BoxShape.circle,
                             ),
                             child: const Center(
@@ -116,7 +118,8 @@ class _GiftShopCardWidgetState extends State<GiftShopCardWidget> {
                             width: 22,
                             height: 22,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.85),
+                              color: const Color(0xFF8B5CF6)
+                                  .withValues(alpha: 0.85),
                               shape: BoxShape.circle,
                             ),
                             child: const Center(
@@ -130,9 +133,13 @@ class _GiftShopCardWidgetState extends State<GiftShopCardWidget> {
                         const Spacer(),
                         if (item.releaseTag != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444).withValues(alpha: 0.85),
+                              color: const Color(0xFFEF4444)
+                                  .withValues(alpha: 0.85),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -202,7 +209,8 @@ class _GiftShopCardWidgetState extends State<GiftShopCardWidget> {
                                 borderRadius: BorderRadius.circular(17),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF1E88E5).withValues(alpha: 0.35),
+                                    color: const Color(0xFF1E88E5)
+                                        .withValues(alpha: 0.35),
                                     blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   ),
@@ -212,9 +220,10 @@ class _GiftShopCardWidgetState extends State<GiftShopCardWidget> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    widget.currentCurrency == GiftShopCurrency.stars
+                                    widget.currentCurrency ==
+                                            GiftShopCurrency.stars
                                         ? '${item.priceStars}'
-                                        : item.priceGram.toStringAsFixed(2),
+                                        : item.priceTon.toStringAsFixed(2),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 13,
@@ -223,10 +232,13 @@ class _GiftShopCardWidgetState extends State<GiftShopCardWidget> {
                                   ),
                                   const SizedBox(width: 4),
                                   Icon(
-                                    widget.currentCurrency == GiftShopCurrency.stars
+                                    widget.currentCurrency ==
+                                            GiftShopCurrency.stars
                                         ? Icons.star_rounded
                                         : Icons.diamond_rounded,
-                                    color: widget.currentCurrency == GiftShopCurrency.stars
+                                    color:
+                                        widget.currentCurrency ==
+                                            GiftShopCurrency.stars
                                         ? const Color(0xFFFBBF24)
                                         : Colors.white,
                                     size: 14,

@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// Promotional card matching Image 1 ("GRAM at Work")
+/// Promotional card matching Image 1 ("TON at Work")
 class GiftShopPromoCardWidget extends StatelessWidget {
   final VoidCallback? onTap;
 
-  const GiftShopPromoCardWidget({
-    super.key,
-    this.onTap,
-  });
+  const GiftShopPromoCardWidget({super.key, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -17,11 +14,7 @@ class GiftShopPromoCardWidget extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           gradient: const LinearGradient(
-            colors: [
-              Color(0xFF7E22CE),
-              Color(0xFF4A0E78),
-              Color(0xFF2E0854),
-            ],
+            colors: [Color(0xFF7E22CE), Color(0xFF4A0E78), Color(0xFF2E0854)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -58,7 +51,7 @@ class GiftShopPromoCardWidget extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Text(
-                    'GRAM\nat Work',
+                    'TON\nat Work',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -69,7 +62,7 @@ class GiftShopPromoCardWidget extends StatelessWidget {
                   ),
                   const Spacer(),
 
-                  // Center GRAM rock illustration
+                  // Center TON rock illustration
                   Container(
                     width: 76,
                     height: 76,
@@ -107,7 +100,7 @@ class GiftShopPromoCardWidget extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Text(
-                      'Stake GRAM',
+                      'Stake TON',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
@@ -125,4 +118,3 @@ class GiftShopPromoCardWidget extends StatelessWidget {
     );
   }
 }
-

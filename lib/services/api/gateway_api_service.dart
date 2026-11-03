@@ -2,6 +2,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_telegram_miniapp/flutter_telegram_miniapp.dart';
 import 'package:http/http.dart' as http;
@@ -18,7 +19,8 @@ class GatewayApiService {
   GatewayApiService._internal();
 
   String _customBaseUrl = '';
-  void setBaseUrl(String url) => _customBaseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
+  void setBaseUrl(String url) =>
+      _customBaseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
 
   /// Base API URL (defaults to Env.apiBaseUrl, e.g. http://localhost:8080/api)
   String get baseUrl {
@@ -93,7 +95,9 @@ class GatewayApiService {
   }
 
   Future<Map<String, dynamic>> getWalletInfo() async {
-    final data = await _get('/wallet/info?userId=${Uri.encodeComponent(currentUserId)}');
+    final data = await _get(
+      '/wallet/info?userId=${Uri.encodeComponent(currentUserId)}',
+    );
     return data is Map<String, dynamic> ? data : {};
   }
 
@@ -106,8 +110,11 @@ class GatewayApiService {
         serverSeedHash: info['serverSeedHash']?.toString() ?? '',
         clientSeed: info['clientSeed']?.toString() ?? 'client_seed',
         nonce: (info['nonce'] as num?)?.toInt() ?? 1,
-        gifts: (info['inventory'] as List<dynamic>?)
-                ?.map((item) => UserGiftItem.fromJson(item as Map<String, dynamic>))
+        gifts:
+            (info['inventory'] as List<dynamic>?)
+                ?.map(
+                  (item) => UserGiftItem.fromJson(item as Map<String, dynamic>),
+                )
                 .toList() ??
             const [],
       );
@@ -126,7 +133,9 @@ class GatewayApiService {
 
   Future<List<dynamic>> getUserTransactions({int limit = 30}) async {
     try {
-      final data = await _get('/wallet/transactions?limit=$limit&userId=${Uri.encodeComponent(currentUserId)}');
+      final data = await _get(
+        '/wallet/transactions?limit=$limit&userId=${Uri.encodeComponent(currentUserId)}',
+      );
       if (data is Map<String, dynamic> && data['transactions'] is List) {
         return data['transactions'] as List<dynamic>;
       }
@@ -139,7 +148,9 @@ class GatewayApiService {
 
   Future<List<dynamic>> getUserInventory() async {
     try {
-      final data = await _get('/wallet/inventory?userId=${Uri.encodeComponent(currentUserId)}');
+      final data = await _get(
+        '/wallet/inventory?userId=${Uri.encodeComponent(currentUserId)}',
+      );
       if (data is Map<String, dynamic> && data['inventory'] is List) {
         return data['inventory'] as List<dynamic>;
       }
@@ -154,12 +165,12 @@ class GatewayApiService {
   // 2. TON & STARS DEPOSITS & WITHDRAWALS
   // --------------------------------------------------------------------------
   Future<TonDepositSession> createTonDepositRequest(double amountTon) async {
-    final data = await _post('/wallet/deposit/ton', {
-      'amountTon': amountTon,
-    });
+    final data = await _post('/wallet/deposit/ton', {'amountTon': amountTon});
     final nano = (amountTon * 1e9).round().toString();
     return TonDepositSession(
-      depositId: data['depositId']?.toString() ?? 'dep_${DateTime.now().millisecondsSinceEpoch}',
+      depositId:
+          data['depositId']?.toString() ??
+          'dep_${DateTime.now().millisecondsSinceEpoch}',
       depositAddress: data['destinationAddress']?.toString() ?? '',
       comment: data['comment']?.toString() ?? 'Terna Deposit',
       amountTon: amountTon,
@@ -184,7 +195,11 @@ class GatewayApiService {
       verified: data['verified'] == true,
       txHash: data['txHash']?.toString(),
       tonBalance: (data['tonBalance'] as num?)?.toDouble() ?? 0.0,
-      message: data['message']?.toString() ?? (data['verified'] == true ? 'Deposit confirmed' : 'Pending verification'),
+      message:
+          data['message']?.toString() ??
+          (data['verified'] == true
+              ? 'Deposit confirmed'
+              : 'Pending verification'),
     );
   }
 
@@ -195,7 +210,10 @@ class GatewayApiService {
     final invoiceId = data['invoiceId']?.toString() ?? '';
     final invoiceLink = data['invoiceLink']?.toString() ?? '';
     if (data['ok'] != true || invoiceId.isEmpty || invoiceLink.isEmpty) {
-      throw StateError(data['error']?.toString() ?? 'The backend did not create a Stars invoice.');
+      throw StateError(
+        data['error']?.toString() ??
+            'The backend did not create a Stars invoice.',
+      );
     }
     return StarsInvoiceSession(
       invoiceId: invoiceId,
@@ -205,7 +223,9 @@ class GatewayApiService {
   }
 
   Future<StarsPaidResult> checkStarsInvoiceStatus(String invoiceId) async {
-    final data = await _get('/wallet/stars-invoice/${Uri.encodeComponent(invoiceId)}');
+    final data = await _get(
+      '/wallet/stars-invoice/${Uri.encodeComponent(invoiceId)}',
+    );
     if (data is! Map<String, dynamic>) {
       throw const FormatException('Invalid Stars invoice status response.');
     }
@@ -225,12 +245,17 @@ class GatewayApiService {
       'reason': reason,
     });
     if (data is! Map<String, dynamic> || data['success'] != true) {
-      throw const FormatException('The admin balance adjustment was not accepted.');
+      throw const FormatException(
+        'The admin balance adjustment was not accepted.',
+      );
     }
     return data;
   }
 
-  Future<Map<String, dynamic>> withdrawTon(String destinationAddress, double amount) async {
+  Future<Map<String, dynamic>> withdrawTon(
+    String destinationAddress,
+    double amount,
+  ) async {
     final data = await _post('/wallet/withdraw/ton', {
       'userId': currentUserId,
       'destinationAddress': destinationAddress,
@@ -239,7 +264,10 @@ class GatewayApiService {
     return data is Map<String, dynamic> ? data : {};
   }
 
-  Future<Map<String, dynamic>> requestStarsWithdrawal(int starsAmount, {String? destinationAddress}) async {
+  Future<Map<String, dynamic>> requestStarsWithdrawal(
+    int starsAmount, {
+    String? destinationAddress,
+  }) async {
     final data = await _post('/wallet/withdraw/stars', {
       'userId': currentUserId,
       'starsAmount': starsAmount,
@@ -252,12 +280,11 @@ class GatewayApiService {
   // 3. SHOP & GEMINI STORE
   // --------------------------------------------------------------------------
   Future<Map<String, dynamic>> getShopPrices() async {
-    try {
-      final data = await _get('/shop/prices');
-      return data is Map<String, dynamic> ? data : {};
-    } catch (e) {
-      return {'tonPriceUsd': 1.5, 'starsPriceUsd': 0.013, 'updatedAt': DateTime.now().millisecondsSinceEpoch};
+    final data = await _get('/shop/prices');
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('Invalid shop prices response.');
     }
+    return data;
   }
 
   Future<List<dynamic>> getGeminiStoreProducts() async {
@@ -280,6 +307,17 @@ class GatewayApiService {
     final data = await _post('/shop/geministore/purchase', {
       'userId': currentUserId,
       'productId': productId,
+      'currency': currency,
+    });
+    return data is Map<String, dynamic> ? data : {};
+  }
+
+  Future<Map<String, dynamic>> purchaseShopGift({
+    required String giftId,
+    required String currency,
+  }) async {
+    final data = await _post('/shop/purchase', {
+      'giftId': giftId,
       'currency': currency,
     });
     return data is Map<String, dynamic> ? data : {};
@@ -338,7 +376,9 @@ class GatewayApiService {
   // --------------------------------------------------------------------------
   Future<Map<String, dynamic>> getActiveMines() async {
     try {
-      final data = await _get('/games/mines/active?userId=${Uri.encodeComponent(currentUserId)}');
+      final data = await _get(
+        '/games/mines/active?userId=${Uri.encodeComponent(currentUserId)}',
+      );
       return data is Map<String, dynamic> ? data : {};
     } catch (e) {
       return {'activeRound': null};
@@ -377,9 +417,7 @@ class GatewayApiService {
     return data is Map<String, dynamic> ? data : {};
   }
 
-  Future<Map<String, dynamic>> cashoutMines({
-    required String roundId,
-  }) async {
+  Future<Map<String, dynamic>> cashoutMines({required String roundId}) async {
     final data = await _post('/games/mines/cashout', {
       'userId': currentUserId,
       'roundId': roundId,
@@ -392,7 +430,9 @@ class GatewayApiService {
   // --------------------------------------------------------------------------
   Future<Map<String, dynamic>> getActiveTower() async {
     try {
-      final data = await _get('/games/tower/active?userId=${Uri.encodeComponent(currentUserId)}');
+      final data = await _get(
+        '/games/tower/active?userId=${Uri.encodeComponent(currentUserId)}',
+      );
       return data is Map<String, dynamic> ? data : {};
     } catch (e) {
       return {'activeRound': null};
@@ -431,9 +471,7 @@ class GatewayApiService {
     return data is Map<String, dynamic> ? data : {};
   }
 
-  Future<Map<String, dynamic>> cashoutTower({
-    required String roundId,
-  }) async {
+  Future<Map<String, dynamic>> cashoutTower({required String roundId}) async {
     final data = await _post('/games/tower/cashout', {
       'userId': currentUserId,
       'roundId': roundId,
@@ -544,7 +582,8 @@ class GatewayApiService {
   }) async {
     try {
       var query = '/chat/messages?scope=$scope&limit=$limit';
-      if (targetId != null) query += '&targetId=${Uri.encodeComponent(targetId)}';
+      if (targetId != null)
+        query += '&targetId=${Uri.encodeComponent(targetId)}';
       final data = await _get(query);
       if (data is Map<String, dynamic> && data['messages'] is List) {
         return data['messages'] as List<dynamic>;
@@ -623,7 +662,9 @@ class GatewayApiService {
 
   Future<List<dynamic>> getFriends() async {
     try {
-      final data = await _get('/chat/friends?userId=${Uri.encodeComponent(currentUserId)}');
+      final data = await _get(
+        '/chat/friends?userId=${Uri.encodeComponent(currentUserId)}',
+      );
       if (data is Map<String, dynamic> && data['friends'] is List) {
         return data['friends'] as List<dynamic>;
       }
@@ -672,10 +713,7 @@ class GatewayApiService {
   }
 
   Future<Map<String, dynamic>> updateGamerBio(Map<String, dynamic> bio) async {
-    final data = await _post('/chat/bio', {
-      'userId': currentUserId,
-      ...bio,
-    });
+    final data = await _post('/chat/bio', {'userId': currentUserId, ...bio});
     return data is Map<String, dynamic> ? data : {};
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../models/gift_shop/gift_shop_models.dart';
 import 'gift_shop_card_widget.dart';
 import 'gift_shop_promo_card_widget.dart';
@@ -31,7 +32,11 @@ class GiftShopGridWidget extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.search_off_rounded, size: 56, color: Colors.white24),
+              const Icon(
+                Icons.search_off_rounded,
+                size: 56,
+                color: Colors.white24,
+              ),
               const SizedBox(height: 12),
               const Text(
                 'No gifts found',
@@ -55,7 +60,9 @@ class GiftShopGridWidget extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ],
@@ -113,13 +120,13 @@ class GiftShopGridWidget extends StatelessWidget {
           ),
           itemCount: items.length + 1, // +1 for the promo card
           itemBuilder: (context, index) {
-            // Insert the "GRAM at Work" promo card at index 5 (matching screenshot position)
+            // Insert the "TON at Work" promo card at index 5.
             if (index == 5 || (index == items.length && items.length < 5)) {
               return GiftShopPromoCardWidget(
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Staking pool opens with GRAM network integration.'),
+                      content: Text('TON staking is not available yet.'),
                       duration: Duration(seconds: 2),
                     ),
                   );

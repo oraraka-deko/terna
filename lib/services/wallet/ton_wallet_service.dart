@@ -44,6 +44,12 @@ class TonWalletService extends ChangeNotifier {
 
   /// Open TON Connect UI modal picker (Tonkeeper, Telegram Wallet, MyTonWallet, etc.)
   Future<WalletConnection?> connectWallet(BuildContext context) async {
+    try {
+      await tonConnect.wallets.load(forceRefresh: true);
+    } catch (error) {
+      debugPrint('[TonWalletService] Wallet registry refresh failed: $error');
+    }
+
     final conn = await showWalletPicker(
       context: context,
       ton: tonConnect,
